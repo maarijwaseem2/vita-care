@@ -1,0 +1,137 @@
+.actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 760px;
+  margin: 0 auto 18px;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.92rem;
+  transition: color 0.15s ease;
+}
+.back:hover { color: var(--secondary); }
+
+.sheet {
+  max-width: 760px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 40px;
+}
+
+.confirmed {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #e6f7ec;
+  border: 1px solid #b8e6c6;
+  border-radius: var(--radius);
+  padding: 18px 22px;
+  margin-bottom: 30px;
+  color: #1c7a34;
+}
+.confirmed h1 { font-size: 1.35rem; color: #14612a; margin-bottom: 2px; }
+.confirmed p { font-size: 0.92rem; color: #2b7a44; }
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+  border-bottom: 2px dashed var(--line);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand img { width: 40px; height: 40px; object-fit: contain; }
+.brand span {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--primary);
+}
+.ref { text-align: right; }
+.ref span { display: block; font-size: 0.78rem; color: var(--muted); }
+.ref strong { font-size: 1.05rem; color: var(--ink); letter-spacing: 0.03em; }
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px 32px;
+}
+.blockTitle {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--secondary);
+  margin-bottom: 12px;
+}
+.line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--body);
+  font-size: 0.96rem;
+  margin-bottom: 8px;
+}
+.line svg { color: var(--muted); flex-shrink: 0; }
+
+.feeRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.96rem;
+}
+.feeRow strong { font-size: 1.15rem; color: var(--primary); }
+.payNote { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+
+.reason {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.reason p { color: var(--body); }
+
+.footer {
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 2px dashed var(--line);
+  text-align: center;
+}
+.footer p { font-size: 0.85rem; color: var(--muted); }
+.thanks {
+  margin-top: 8px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  color: var(--primary) !important;
+  font-size: 0.95rem !important;
+}
+
+@media (max-width: 620px) {
+  .sheet { padding: 26px 20px; }
+  .grid { grid-template-columns: 1fr; gap: 22px; }
+  .confirmed { flex-direction: column; text-align: center; }
+}
+
+/* Print: show only the receipt sheet (nav/footer hidden globally) */
+@media print {
+  .actions {
+    display: none !important;
+  }
+  .sheet {
+    box-shadow: none;
+    border: none;
+    max-width: 100%;
+    padding: 0;
+  }
+}

@@ -1,0 +1,134 @@
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.92rem;
+  margin-bottom: 20px;
+  transition: color 0.15s ease;
+}
+.back:hover { color: var(--secondary); }
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 28px;
+  align-items: start;
+}
+
+.formCard { }
+
+.title {
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+}
+
+/* Date chips */
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.dateChip {
+  padding: 10px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--body);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.dateChip:hover { border-color: var(--secondary); color: var(--secondary); }
+.dateActive,
+.dateActive:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+/* Time slots */
+.slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+}
+.slot {
+  position: relative;
+  padding: 12px 8px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.slot:hover:not(:disabled) { border-color: var(--secondary); color: var(--secondary); }
+.slotActive,
+.slotActive:hover {
+  background: var(--secondary);
+  border-color: var(--secondary);
+  color: #fff;
+}
+.slotTaken {
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: not-allowed;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.slotLabel {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  margin-top: 2px;
+}
+
+/* Doctor summary sidebar */
+.summary {
+  position: sticky;
+  top: calc(var(--nav-h) + 20px);
+  background: var(--surface-2);
+}
+.docRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.docRow img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.docRow h3 { font-size: 1.05rem; margin-bottom: 6px; }
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  font-size: 0.95rem;
+}
+.summaryRow span { color: var(--muted); }
+.summaryRow strong { color: var(--ink); font-weight: 600; }
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+  .summary { position: static; order: -1; }
+}
