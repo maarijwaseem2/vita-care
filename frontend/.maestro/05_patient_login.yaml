@@ -1,0 +1,30 @@
+# -----------------------------------------------------------------------------
+# Vita Care — Maestro Web Flow
+# Logs in with the seeded demo patient and verifies the dashboard loads.
+#
+# Requires the backend to be seeded (npm run seed) so that
+# patient@vitacare.test / Password123 exists.
+# -----------------------------------------------------------------------------
+appId: "http://localhost:3000"
+name: 05 - Patient login
+tags:
+  - web
+  - auth
+---
+- launchApp
+- openLink: "http://localhost:3000/login"
+- assertVisible: "Email"
+- assertVisible: "Password"
+
+# Enter the demo patient credentials (fields targeted by id)
+- tapOn:
+    id: "email"
+- inputText: "patient@vitacare.test"
+- tapOn:
+    id: "password"
+- inputText: "Password123"
+- tapOn: "Sign In"
+
+# After login the navbar shows the account (the patient's name / dashboard link).
+# The demo patient is "Ali Hassan".
+- assertVisible: "Ali"

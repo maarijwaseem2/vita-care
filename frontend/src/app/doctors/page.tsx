@@ -77,6 +77,8 @@ function DoctorsList() {
           <div className={styles.searchBox}>
             <Search size={18} />
             <input
+              id="doctorSearch"
+              name="doctorSearch"
               type="text"
               placeholder="Search by doctor name or specialty…"
               value={search}

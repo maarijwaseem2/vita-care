@@ -1,0 +1,7 @@
+# Maestro workspace configuration.
+# Runs every *.yaml flow in this folder. See README.md for how to run.
+flows:
+  - "*.yaml"
+
+# Example: run only smoke-tagged flows with:
+#   maestro test .maestro/ --include-tags smoke

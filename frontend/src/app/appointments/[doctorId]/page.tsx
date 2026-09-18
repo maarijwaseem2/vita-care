@@ -184,8 +184,10 @@ export default function BookingPage() {
 
             <div className="field-row">
               <div className="field">
-                <label>Your name</label>
+                <label htmlFor="patientName">Your name</label>
                 <input
+                  id="patientName"
+                  name="patientName"
                   className="input"
                   value={patientName}
                   onChange={(e) => setPatientName(e.target.value)}
@@ -193,8 +195,10 @@ export default function BookingPage() {
                 />
               </div>
               <div className="field">
-                <label>Phone number</label>
+                <label htmlFor="patientPhone">Phone number</label>
                 <input
+                  id="patientPhone"
+                  name="patientPhone"
                   className="input"
                   value={patientPhone}
                   onChange={(e) => setPatientPhone(e.target.value)}
@@ -205,8 +209,10 @@ export default function BookingPage() {
             </div>
 
             <div className="field">
-              <label>Reason for visit <span className="text-muted">(optional)</span></label>
+              <label htmlFor="reason">Reason for visit <span className="text-muted">(optional)</span></label>
               <textarea
+                id="reason"
+                name="reason"
                 className="textarea"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}

@@ -1,0 +1,28 @@
+# -----------------------------------------------------------------------------
+# Vita Care — Maestro Web Flow
+# Browses the doctor directory, searches, and opens a doctor profile.
+# -----------------------------------------------------------------------------
+appId: "http://localhost:3000"
+name: 02 - Find a doctor
+tags:
+  - web
+---
+- launchApp
+- tapOn: "Find a Doctor"
+- assertVisible: "Search trusted specialists"
+
+# Type a search term into the search box (targeted by its id)
+- tapOn:
+    id: "doctorSearch"
+- inputText: "Saif"
+- assertVisible: "Saif"
+
+# Clear the field and open the first doctor's full profile
+- tapOn:
+    id: "doctorSearch"
+- eraseText
+- assertVisible: "Profile"
+- tapOn: "Profile"
+
+# The profile page shows a Book call-to-action
+- assertVisible: "Book"

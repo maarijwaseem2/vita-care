@@ -1,0 +1,30 @@
+# -----------------------------------------------------------------------------
+# Vita Care — Maestro Web Flow
+# Opens the AI Doctor and sends a message.
+#
+# Works in BOTH states:
+#  - If no AI key is configured, the app shows a friendly "not switched on yet"
+#    banner (the app does not crash).
+#  - If a key IS configured, the assistant replies in the chat.
+# The flow asserts the page and composer render, which is true either way.
+# -----------------------------------------------------------------------------
+appId: "http://localhost:3000"
+name: 04 - AI Doctor
+tags:
+  - web
+---
+- launchApp
+- tapOn: "AI Doctor"
+- assertVisible: "Talk to the AI Doctor"
+
+# The chat composer is present; type a symptom description
+- tapOn:
+    id: "symptomInput"
+- inputText: "I have a sore throat and mild fever"
+
+# Send the message
+- tapOn:
+    id: "sendMessage"
+# Give the UI a moment to respond (reply, or the not-configured banner)
+- waitForAnimationToEnd:
+    timeout: 5000

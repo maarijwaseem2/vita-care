@@ -177,6 +177,8 @@ export default function AiDoctorPage() {
               }}
             >
               <input
+                id="symptomInput"
+                name="symptomInput"
                 className="input"
                 placeholder="Describe your symptoms…"
                 value={input}
@@ -184,6 +186,7 @@ export default function AiDoctorPage() {
                 disabled={loading}
               />
               <button
+                id="sendMessage"
                 type="submit"
                 className="btn"
                 disabled={loading || !input.trim()}

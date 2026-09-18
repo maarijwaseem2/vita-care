@@ -1,0 +1,30 @@
+# -----------------------------------------------------------------------------
+# Vita Care — Maestro Web Flow
+# Verifies the landing page renders and the primary navigation works.
+# -----------------------------------------------------------------------------
+appId: "http://localhost:3000"
+name: 01 - Home and navigation
+tags:
+  - smoke
+  - web
+---
+- launchApp
+# Hero + department cards are visible on the landing page
+- assertVisible: "determined for your"
+- assertVisible: "Make an Appointment"
+- assertVisible: "Neurology"
+- assertVisible: "Heart Care"
+- assertVisible: "Osteoporosis"
+- assertVisible: "ENT"
+
+# Navbar → Find a Doctor
+- tapOn: "Find a Doctor"
+- assertVisible: "Search trusted specialists"
+
+# Navbar → AI Doctor
+- tapOn: "AI Doctor"
+- assertVisible: "Talk to the AI Doctor"
+
+# Navbar → back Home
+- tapOn: "Home"
+- assertVisible: "Make an Appointment"

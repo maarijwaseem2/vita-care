@@ -1,0 +1,41 @@
+# -----------------------------------------------------------------------------
+# Vita Care — Maestro Web Flow
+# Books an appointment as a guest (no login) and reaches the receipt page.
+#
+# Note: the first available date is auto-selected on the booking page, so this
+# flow only needs to pick a time slot and fill in the guest's details.
+# If the chosen slot happens to be taken on your machine, change SLOT below.
+# -----------------------------------------------------------------------------
+appId: "http://localhost:3000"
+name: 03 - Book appointment (guest)
+tags:
+  - web
+  - booking
+---
+- launchApp
+- tapOn: "Find a Doctor"
+- assertVisible: "Search trusted specialists"
+
+# Open the first doctor's booking page
+- tapOn: "Book"
+- assertVisible: "Book an appointment"
+- assertVisible: "Available"
+
+# Pick a time slot
+- tapOn: "02:00 PM"
+
+# Fill in guest details (fields targeted by id)
+- tapOn:
+    id: "patientName"
+- inputText: "Maestro Tester"
+- tapOn:
+    id: "patientPhone"
+- inputText: "03001234567"
+- tapOn:
+    id: "reason"
+- inputText: "Automated booking test"
+
+# Confirm and land on the receipt
+- tapOn: "Confirm appointment"
+- assertVisible: "Appointment confirmed"
+- assertVisible: "Reference"
