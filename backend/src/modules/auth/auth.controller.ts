@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { RegisterDoctorDto } from './dto/register-doctor.dto';
@@ -23,7 +31,10 @@ export class AuthController {
     return this.authService.registerDoctor(dto);
   }
 
+  // Login authenticates an existing account, so 200 OK is more correct than
+  // the POST default of 201 Created.
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }

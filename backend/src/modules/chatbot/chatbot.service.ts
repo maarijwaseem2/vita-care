@@ -4,12 +4,11 @@ import { ChatDto } from './dto/chat.dto';
 import { DoctorsService } from '../doctors/doctors.service';
 import { Specialty } from '../../common/enums';
 import { Doctor } from '../doctors/entities/doctor.entity';
-
-interface AiStructuredReply {
-  reply: string;
-  recommendedSpecialty: string | null;
-  urgency: 'routine' | 'soon' | 'emergency';
-}
+import {
+  AiStructuredReply,
+  mapSpecialty,
+  parseStructuredReply,
+} from './chatbot.helpers';
 
 export interface ConsultResult {
   reply: string;
@@ -43,7 +42,7 @@ export class ChatbotService {
   async consult(dto: ChatDto): Promise<ConsultResult> {
     const structured = await this.askModel(dto);
 
-    const specialty = this.mapSpecialty(structured.recommendedSpecialty);
+    const specialty = mapSpecialty(structured.recommendedSpecialty);
     const recommendedDoctors = specialty
       ? await this.doctorsService.findBySpecialty(specialty, 3)
       : [];
@@ -104,7 +103,7 @@ export class ChatbotService {
 
       const data: any = await response.json();
       const content: string = data?.choices?.[0]?.message?.content ?? '';
-      return this.parseStructuredReply(content);
+      return parseStructuredReply(content);
     } catch (error) {
       if (error instanceof ServiceUnavailableException) throw error;
       this.logger.error('Failed to reach AI provider', error as Error);
@@ -133,56 +132,4 @@ export class ChatbotService {
     ].join('\n');
   }
 
-  private parseStructuredReply(content: string): AiStructuredReply {
-    const fallback: AiStructuredReply = {
-      reply:
-        content?.trim() ||
-        'Sorry, I could not process that. Could you describe your symptoms again?',
-      recommendedSpecialty: null,
-      urgency: 'routine',
-    };
-
-    try {
-      // Strip accidental code fences before parsing.
-      const cleaned = content
-        .replace(/```json/gi, '')
-        .replace(/```/g, '')
-        .trim();
-      const parsed = JSON.parse(cleaned);
-      return {
-        reply:
-          typeof parsed.reply === 'string' ? parsed.reply : fallback.reply,
-        recommendedSpecialty:
-          typeof parsed.recommendedSpecialty === 'string'
-            ? parsed.recommendedSpecialty
-            : null,
-        urgency: ['routine', 'soon', 'emergency'].includes(parsed.urgency)
-          ? parsed.urgency
-          : 'routine',
-      };
-    } catch {
-      return fallback;
-    }
-  }
-
-  /** Loosely map the model's free-text department to our Specialty enum. */
-  private mapSpecialty(value: string | null): Specialty | null {
-    if (!value) return null;
-    const normalized = value.toLowerCase();
-
-    const table: Array<[string[], Specialty]> = [
-      [['neuro', 'brain', 'nerve'], Specialty.NEUROLOGY],
-      [['heart', 'cardio', 'cardiac'], Specialty.HEART_CARE],
-      [['osteo', 'bone', 'joint', 'ortho'], Specialty.OSTEOPOROSIS],
-      [['ent', 'ear', 'nose', 'throat'], Specialty.ENT],
-      [['general', 'physician', 'gp', 'family'], Specialty.GENERAL],
-    ];
-
-    for (const [keywords, specialty] of table) {
-      if (keywords.some((k) => normalized.includes(k))) {
-        return specialty;
-      }
-    }
-    return null;
-  }
 }

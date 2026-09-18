@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,6 +20,9 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
+  // Consistent JSON error responses across the whole API.
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Allow the Next.js frontend to call the API.
   const origins = (config.get<string>('CORS_ORIGIN') ?? 'http://localhost:3000')
