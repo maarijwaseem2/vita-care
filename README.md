@@ -21,7 +21,8 @@ MySQL** on the backend.
 7. [Enabling the AI Doctor](#enabling-the-ai-doctor)
 8. [API reference](#api-reference)
 9. [Available scripts](#available-scripts)
-10. [Notes & design decisions](#notes--design-decisions)
+10. [Testing](#testing)
+11. [Notes & design decisions](#notes--design-decisions)
 
 ---
 
@@ -277,6 +278,24 @@ Base URL: `http://localhost:4000/api`
 | `npm run build`   | Production build                |
 | `npm run start`   | Serve the production build      |
 | `npm run lint`    | Lint                            |
+
+---
+
+## Testing
+
+Vita Care ships with automated tests and documented manual test cases.
+
+- **Unit + API end‑to‑end tests (verified passing — 50 tests):**
+  ```bash
+  cd backend
+  npm test            # 15 unit tests (no database needed)
+  npm run test:e2e    # 35 end‑to‑end API tests (needs MySQL, seeded)
+  ```
+- **UI end‑to‑end (Maestro):** browser flows for the main journeys live in
+  `frontend/.maestro/` — see that folder's README to install Maestro and run
+  them on your machine.
+- **Docs:** [`docs/TESTING.md`](docs/TESTING.md) explains how to run each layer;
+  [`docs/TEST-CASES.md`](docs/TEST-CASES.md) is the full case‑by‑case record.
 
 ---
 
