@@ -6,7 +6,7 @@ book appointments, read health articles, and get first-line guidance from an
 their own dashboard to manage their profile and see their upcoming schedule.
 
 Built with **Next.js 14 + TypeScript** on the frontend and **NestJS + TypeORM +
-MySQL** on the backend.
+PostgreSQL** on the backend.
 
 ---
 
@@ -64,7 +64,7 @@ MySQL** on the backend.
 | Icons     | lucide-react                                                      |
 | HTTP      | Axios (with a JWT request interceptor)                            |
 | Backend   | NestJS 10, TypeScript                                              |
-| ORM / DB  | TypeORM 0.3 + MySQL (schema managed by migrations, not `sync`)    |
+| ORM / DB  | TypeORM 0.3 + PostgreSQL (schema managed by migrations, not `sync`) |
 | Auth      | JWT (Passport), bcrypt password hashing                           |
 | Validation| class-validator / class-transformer via a global `ValidationPipe` |
 | AI        | Any OpenAI-compatible Chat Completions API (server-side only)     |
@@ -116,7 +116,7 @@ vita-care/
 ## Prerequisites
 
 - **Node.js 18+** and npm
-- **MySQL 8** (or MariaDB 10.4+) running locally
+- **PostgreSQL 14+** running locally (or a free Neon database)
 
 ---
 
@@ -128,7 +128,7 @@ Create an empty database. The schema itself is created by the migration in the
 next step, so you only need the empty DB and a user that can access it.
 
 ```sql
-CREATE DATABASE vita_care CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE vita_care;
 ```
 
 ### 2. Backend
@@ -289,7 +289,7 @@ Vita Care ships with automated tests and documented manual test cases.
   ```bash
   cd backend
   npm test            # 15 unit tests (no database needed)
-  npm run test:e2e    # 35 end‑to‑end API tests (needs MySQL, seeded)
+  npm run test:e2e    # 35 end-to-end API tests (needs PostgreSQL, seeded)
   ```
 - **UI end‑to‑end (Maestro):** browser flows for the main journeys live in
   `frontend/.maestro/` — see that folder's README to install Maestro and run

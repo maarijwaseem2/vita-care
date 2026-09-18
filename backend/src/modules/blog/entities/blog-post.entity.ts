@@ -20,7 +20,7 @@ export class BlogPost {
   @Column({ type: 'varchar', length: 500 })
   excerpt: string;
 
-  @Column({ type: 'longtext' })
+  @Column({ type: 'text' })
   content: string;
 
   @Column({ nullable: true })

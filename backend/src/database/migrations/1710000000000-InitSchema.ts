@@ -1,142 +1,166 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Creates the full Vita Care schema:
+ * Creates the full Vita Care schema (PostgreSQL):
  *   users -> (doctors | patients) -> medical_history / appointments, blog_posts
  *
  * Foreign keys and the unique appointment-slot index are created here so the
  * database enforces the same rules the application relies on.
+ *
+ * Enum types follow TypeORM's default naming ("<table>_<column>_enum") so the
+ * entities and the database stay consistent.
  */
 export class InitSchema1710000000000 implements MigrationInterface {
   name = 'InitSchema1710000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // ---- enum types ----
+    await queryRunner.query(
+      `CREATE TYPE "users_role_enum" AS ENUM ('patient', 'doctor')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "doctors_specialty_enum" AS ENUM ('Neurology', 'Heart Care', 'Osteoporosis', 'ENT', 'General Physician')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "doctors_gender_enum" AS ENUM ('male', 'female', 'other')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "patients_gender_enum" AS ENUM ('male', 'female', 'other')`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "appointments_status_enum" AS ENUM ('booked', 'completed', 'cancelled')`,
+    );
+
     // ---- users ----
     await queryRunner.query(`
-      CREATE TABLE \`users\` (
-        \`id\` INT NOT NULL AUTO_INCREMENT,
-        \`email\` VARCHAR(255) NOT NULL,
-        \`password_hash\` VARCHAR(255) NOT NULL,
-        \`role\` ENUM('patient','doctor') NOT NULL,
-        \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-        \`updated_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-        UNIQUE INDEX \`uq_users_email\` (\`email\`),
-        PRIMARY KEY (\`id\`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      CREATE TABLE "users" (
+        "id" SERIAL PRIMARY KEY,
+        "email" VARCHAR(255) NOT NULL,
+        "password_hash" VARCHAR(255) NOT NULL,
+        "role" "users_role_enum" NOT NULL,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "uq_users_email" UNIQUE ("email")
+      )
     `);
 
     // ---- doctors ----
     await queryRunner.query(`
-      CREATE TABLE \`doctors\` (
-        \`id\` INT NOT NULL AUTO_INCREMENT,
-        \`user_id\` INT NOT NULL,
-        \`first_name\` VARCHAR(255) NOT NULL,
-        \`last_name\` VARCHAR(255) NOT NULL,
-        \`title\` VARCHAR(255) NOT NULL DEFAULT 'Dr',
-        \`specialty\` ENUM('Neurology','Heart Care','Osteoporosis','ENT','General Physician') NOT NULL DEFAULT 'General Physician',
-        \`age\` INT NULL,
-        \`gender\` ENUM('male','female','other') NULL,
-        \`phone\` VARCHAR(255) NULL,
-        \`city\` VARCHAR(255) NULL,
-        \`address\` VARCHAR(500) NULL,
-        \`qualifications\` JSON NULL,
-        \`certificates\` JSON NULL,
-        \`experiences\` JSON NULL,
-        \`bio\` TEXT NULL,
-        \`opd_schedule\` VARCHAR(255) NULL,
-        \`available_time\` VARCHAR(255) NULL,
-        \`fees\` DECIMAL(10,2) NOT NULL DEFAULT '0.00',
-        \`image_url\` VARCHAR(255) NULL,
-        \`rating\` DECIMAL(2,1) NOT NULL DEFAULT '4.5',
-        \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-        \`updated_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-        UNIQUE INDEX \`uq_doctors_user\` (\`user_id\`),
-        PRIMARY KEY (\`id\`),
-        CONSTRAINT \`fk_doctors_user\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      CREATE TABLE "doctors" (
+        "id" SERIAL PRIMARY KEY,
+        "user_id" INTEGER NOT NULL,
+        "first_name" VARCHAR(255) NOT NULL,
+        "last_name" VARCHAR(255) NOT NULL,
+        "title" VARCHAR(255) NOT NULL DEFAULT 'Dr',
+        "specialty" "doctors_specialty_enum" NOT NULL DEFAULT 'General Physician',
+        "age" INTEGER,
+        "gender" "doctors_gender_enum",
+        "phone" VARCHAR(255),
+        "city" VARCHAR(255),
+        "address" VARCHAR(500),
+        "qualifications" JSON,
+        "certificates" JSON,
+        "experiences" JSON,
+        "bio" TEXT,
+        "opd_schedule" VARCHAR(255),
+        "available_time" VARCHAR(255),
+        "fees" NUMERIC(10,2) NOT NULL DEFAULT 0,
+        "image_url" VARCHAR(255),
+        "rating" NUMERIC(2,1) NOT NULL DEFAULT 4.5,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "uq_doctors_user" UNIQUE ("user_id"),
+        CONSTRAINT "fk_doctors_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE
+      )
     `);
 
     // ---- patients ----
     await queryRunner.query(`
-      CREATE TABLE \`patients\` (
-        \`id\` INT NOT NULL AUTO_INCREMENT,
-        \`user_id\` INT NOT NULL,
-        \`first_name\` VARCHAR(255) NOT NULL,
-        \`last_name\` VARCHAR(255) NOT NULL,
-        \`age\` INT NULL,
-        \`gender\` ENUM('male','female','other') NULL,
-        \`phone\` VARCHAR(255) NULL,
-        \`city\` VARCHAR(255) NULL,
-        \`address\` VARCHAR(500) NULL,
-        \`current_medication\` TEXT NULL,
-        \`image_url\` VARCHAR(255) NULL,
-        \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-        \`updated_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-        UNIQUE INDEX \`uq_patients_user\` (\`user_id\`),
-        PRIMARY KEY (\`id\`),
-        CONSTRAINT \`fk_patients_user\` FOREIGN KEY (\`user_id\`) REFERENCES \`users\`(\`id\`) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      CREATE TABLE "patients" (
+        "id" SERIAL PRIMARY KEY,
+        "user_id" INTEGER NOT NULL,
+        "first_name" VARCHAR(255) NOT NULL,
+        "last_name" VARCHAR(255) NOT NULL,
+        "age" INTEGER,
+        "gender" "patients_gender_enum",
+        "phone" VARCHAR(255),
+        "city" VARCHAR(255),
+        "address" VARCHAR(500),
+        "current_medication" TEXT,
+        "image_url" VARCHAR(255),
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "uq_patients_user" UNIQUE ("user_id"),
+        CONSTRAINT "fk_patients_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE
+      )
     `);
 
     // ---- medical_history ----
     await queryRunner.query(`
-      CREATE TABLE \`medical_history\` (
-        \`id\` INT NOT NULL AUTO_INCREMENT,
-        \`patient_id\` INT NOT NULL,
-        \`condition\` VARCHAR(255) NOT NULL,
-        \`notes\` TEXT NULL,
-        \`diagnosed_at\` DATE NULL,
-        \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-        PRIMARY KEY (\`id\`),
-        CONSTRAINT \`fk_history_patient\` FOREIGN KEY (\`patient_id\`) REFERENCES \`patients\`(\`id\`) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      CREATE TABLE "medical_history" (
+        "id" SERIAL PRIMARY KEY,
+        "patient_id" INTEGER NOT NULL,
+        "condition" VARCHAR(255) NOT NULL,
+        "notes" TEXT,
+        "diagnosed_at" DATE,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "fk_history_patient" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE CASCADE
+      )
     `);
 
     // ---- appointments ----
     await queryRunner.query(`
-      CREATE TABLE \`appointments\` (
-        \`id\` INT NOT NULL AUTO_INCREMENT,
-        \`doctor_id\` INT NOT NULL,
-        \`patient_id\` INT NULL,
-        \`patient_name\` VARCHAR(255) NOT NULL,
-        \`patient_phone\` VARCHAR(255) NOT NULL,
-        \`date\` DATE NOT NULL,
-        \`time_slot\` VARCHAR(255) NOT NULL,
-        \`reason\` TEXT NULL,
-        \`status\` ENUM('booked','completed','cancelled') NOT NULL DEFAULT 'booked',
-        \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-        PRIMARY KEY (\`id\`),
-        UNIQUE INDEX \`uq_doctor_slot\` (\`doctor_id\`, \`date\`, \`time_slot\`),
-        CONSTRAINT \`fk_appt_doctor\` FOREIGN KEY (\`doctor_id\`) REFERENCES \`doctors\`(\`id\`) ON DELETE CASCADE,
-        CONSTRAINT \`fk_appt_patient\` FOREIGN KEY (\`patient_id\`) REFERENCES \`patients\`(\`id\`) ON DELETE SET NULL
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      CREATE TABLE "appointments" (
+        "id" SERIAL PRIMARY KEY,
+        "doctor_id" INTEGER NOT NULL,
+        "patient_id" INTEGER,
+        "patient_name" VARCHAR(255) NOT NULL,
+        "patient_phone" VARCHAR(255) NOT NULL,
+        "date" DATE NOT NULL,
+        "time_slot" VARCHAR(255) NOT NULL,
+        "reason" TEXT,
+        "status" "appointments_status_enum" NOT NULL DEFAULT 'booked',
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "fk_appt_doctor" FOREIGN KEY ("doctor_id") REFERENCES "doctors"("id") ON DELETE CASCADE,
+        CONSTRAINT "fk_appt_patient" FOREIGN KEY ("patient_id") REFERENCES "patients"("id") ON DELETE SET NULL
+      )
+    `);
+
+    // One booking per (doctor, date, slot) — enforced at the database level.
+    await queryRunner.query(`
+      CREATE UNIQUE INDEX "uq_doctor_slot"
+        ON "appointments" ("doctor_id", "date", "time_slot")
     `);
 
     // ---- blog_posts ----
     await queryRunner.query(`
-      CREATE TABLE \`blog_posts\` (
-        \`id\` INT NOT NULL AUTO_INCREMENT,
-        \`title\` VARCHAR(255) NOT NULL,
-        \`slug\` VARCHAR(255) NOT NULL,
-        \`excerpt\` VARCHAR(500) NOT NULL,
-        \`content\` LONGTEXT NOT NULL,
-        \`category\` VARCHAR(255) NULL,
-        \`author\` VARCHAR(255) NULL,
-        \`image_url\` VARCHAR(255) NULL,
-        \`published_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-        UNIQUE INDEX \`uq_blog_slug\` (\`slug\`),
-        PRIMARY KEY (\`id\`)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+      CREATE TABLE "blog_posts" (
+        "id" SERIAL PRIMARY KEY,
+        "title" VARCHAR(255) NOT NULL,
+        "slug" VARCHAR(255) NOT NULL,
+        "excerpt" VARCHAR(500) NOT NULL,
+        "content" TEXT NOT NULL,
+        "category" VARCHAR(255),
+        "author" VARCHAR(255),
+        "image_url" VARCHAR(255),
+        "published_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "uq_blog_slug" UNIQUE ("slug")
+      )
     `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    // Reverse order to respect foreign keys.
-    await queryRunner.query(`DROP TABLE \`blog_posts\``);
-    await queryRunner.query(`DROP TABLE \`appointments\``);
-    await queryRunner.query(`DROP TABLE \`medical_history\``);
-    await queryRunner.query(`DROP TABLE \`patients\``);
-    await queryRunner.query(`DROP TABLE \`doctors\``);
-    await queryRunner.query(`DROP TABLE \`users\``);
+    // Reverse order to respect foreign keys, dropping enum types after their tables.
+    await queryRunner.query(`DROP TABLE "blog_posts"`);
+    await queryRunner.query(`DROP TABLE "appointments"`);
+    await queryRunner.query(`DROP TYPE "appointments_status_enum"`);
+    await queryRunner.query(`DROP TABLE "medical_history"`);
+    await queryRunner.query(`DROP TABLE "patients"`);
+    await queryRunner.query(`DROP TYPE "patients_gender_enum"`);
+    await queryRunner.query(`DROP TABLE "doctors"`);
+    await queryRunner.query(`DROP TYPE "doctors_gender_enum"`);
+    await queryRunner.query(`DROP TYPE "doctors_specialty_enum"`);
+    await queryRunner.query(`DROP TABLE "users"`);
+    await queryRunner.query(`DROP TYPE "users_role_enum"`);
   }
 }

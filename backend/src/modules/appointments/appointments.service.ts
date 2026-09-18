@@ -10,8 +10,8 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { DoctorsService } from '../doctors/doctors.service';
 import { AppointmentStatus } from '../../common/enums';
 
-// MySQL error code raised when a UNIQUE constraint is violated.
-const ER_DUP_ENTRY = 'ER_DUP_ENTRY';
+// PostgreSQL SQLSTATE raised when a UNIQUE constraint is violated (unique_violation).
+const PG_UNIQUE_VIOLATION = '23505';
 
 @Injectable()
 export class AppointmentsService {
@@ -49,7 +49,7 @@ export class AppointmentsService {
     } catch (error) {
       if (
         error instanceof QueryFailedError &&
-        (error as any).code === ER_DUP_ENTRY
+        (error as any).code === PG_UNIQUE_VIOLATION
       ) {
         throw new ConflictException(
           'That time slot is already booked. Please choose another.',
