@@ -15,7 +15,7 @@ export default function FeaturedDoctors() {
   useEffect(() => {
     doctorsApi
       .list()
-      .then((data) => setDoctors(data.slice(0, 4)))
+      .then((data) => setDoctors(data.slice(0, 3)))
       .catch(() => setDoctors([]))
       .finally(() => setLoading(false));
   }, []);
@@ -38,8 +38,8 @@ export default function FeaturedDoctors() {
         </div>
 
         {loading ? (
-          <div className="grid grid-4">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className={styles.doctorGrid}>
+            {Array.from({ length: 3 }).map((_, i) => (
               <div
                 key={i}
                 className="card"
@@ -48,7 +48,7 @@ export default function FeaturedDoctors() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-4">
+          <div className={styles.doctorGrid}>
             {doctors.map((d) => (
               <DoctorCard key={d.id} doctor={d} />
             ))}

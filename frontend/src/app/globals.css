@@ -12,6 +12,7 @@
   --blue: #1b71a1;
   --cyan: #0dafca;
   --green: #30a64a;
+  --saffron: #0dafca;
   --purple: #a1b0fc;
 
   /* Semantic */
@@ -355,3 +356,22 @@ ul {
   }
   body { background: #fff; }
 }
+
+/* ---------- Urdu text ---------- */
+/* Any element marked lang="ur" (chat bubbles, replies) uses Nastaliq, RTL. */
+:root { --font-urdu-stack: var(--font-urdu), 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', serif; }
+[lang='ur'] {
+  font-family: var(--font-urdu-stack);
+  line-height: 2.1;
+  direction: rtl;
+  text-align: right;
+}
+
+/* ---------- Accessibility ---------- */
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Visually hidden but read by screen readers. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

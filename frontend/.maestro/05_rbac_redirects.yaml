@@ -1,0 +1,26 @@
+url: http://localhost:3000
+name: 05_rbac_redirects
+tags: [rbac, auth]
+---
+# Patient cannot open the admin portal
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: patient@vitacare.test }
+- assertVisible: ".*Home nursing visits.*"
+- openLink: http://localhost:3000/admin
+- assertNotVisible: "Admin portal"
+- assertVisible: ".*Home nursing visits.*"
+# Nurse opening the doctor dashboard is sent back to the nurse dashboard
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: nurse@vitacare.test }
+- assertVisible: "Nurse dashboard"
+- openLink: http://localhost:3000/profile/doctor
+- assertVisible: "Nurse dashboard"
+# Admin opening a patient page lands on the admin dashboard (no redirect loop)
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: admin@vitacare.test }
+- assertVisible: "Admin portal"
+- openLink: http://localhost:3000/profile/patient
+- assertVisible: "Admin portal"

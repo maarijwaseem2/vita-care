@@ -1,5 +1,7 @@
-/** Distinguishes the two kinds of accounts on the platform. */
+/** The kinds of accounts on the platform. */
 export enum UserRole {
   PATIENT = 'patient',
   DOCTOR = 'doctor',
+  ADMIN = 'admin',
+  NURSE = 'nurse',
 }

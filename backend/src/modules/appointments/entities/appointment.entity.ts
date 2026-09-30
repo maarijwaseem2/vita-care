@@ -6,27 +6,33 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { AppointmentStatus } from '../../../common/enums';
 import { Doctor } from '../../doctors/entities/doctor.entity';
 import { Patient } from '../../patients/entities/patient.entity';
+import { TriageSession } from '../../chatbot/entities/triage-session.entity';
 
 /**
  * A booked appointment slot between a patient and a doctor.
  *
- * The unique index on (doctor_id, date, time_slot) is what enforces
- * "one booking per slot" at the database level — the same rule the original
- * Firebase code tried to check in JavaScript, now guaranteed by MySQL.
+ * A PARTIAL unique index on (doctor_id, date, time_slot) WHERE status='booked'
+ * enforces "one active booking per slot" in the database, while still letting
+ * a cancelled slot be booked again. It is created in the migration.
+ *
+ * `reference` is a short random code (e.g. VC-7K2M9QXA) used for the public
+ * receipt link, so receipts can't be enumerated by guessing numeric ids.
  */
 @Entity('appointments')
-@Index('uq_doctor_slot', ['doctorId', 'date', 'timeSlot'], { unique: true })
 export class Appointment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Doctor, (doctor) => doctor.appointments, {
-    onDelete: 'CASCADE',
-  })
+  @Index('uq_appointments_reference', { unique: true })
+  @Column({ type: 'varchar', length: 16 })
+  reference: string;
+
+  @ManyToOne(() => Doctor, (doctor) => doctor.appointments, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'doctor_id' })
   doctor: Doctor;
 
@@ -41,7 +47,7 @@ export class Appointment {
   @JoinColumn({ name: 'patient_id' })
   patient: Patient;
 
-  @Column({ name: 'patient_id', nullable: true })
+  @Column({ name: 'patient_id', type: 'int', nullable: true })
   patientId: number | null;
 
   // Snapshot fields so the receipt is stable even if the profile changes.
@@ -58,11 +64,26 @@ export class Appointment {
   timeSlot: string;
 
   @Column({ type: 'text', nullable: true })
-  reason: string;
+  reason: string | null;
 
   @Column({ type: 'enum', enum: AppointmentStatus, default: AppointmentStatus.BOOKED })
   status: AppointmentStatus;
 
+  /** AI pre-visit summary the patient chose to share with the doctor. */
+  @ManyToOne(() => TriageSession, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'triage_session_id' })
+  triageSession: TriageSession | null;
+
+  @Column({ name: 'triage_session_id', type: 'int', nullable: true })
+  triageSessionId: number | null;
+
+  /** Private notes the doctor writes after the visit. */
+  @Column({ name: 'doctor_notes', type: 'text', nullable: true })
+  doctorNotes: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 }

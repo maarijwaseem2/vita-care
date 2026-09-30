@@ -1,17 +1,24 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { homeFor } from '@/lib/roles';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LogIn } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/api';
 
 function LoginForm() {
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const router = useRouter();
   const params = useSearchParams();
   const redirect = params.get('redirect');
+
+  // /login?logout=1 signs out first (used by shared links and automated tests).
+  useEffect(() => {
+    if (params.get('logout')) logout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -27,7 +34,7 @@ function LoginForm() {
       if (redirect) {
         router.push(redirect);
       } else {
-        router.push(user.role === 'doctor' ? '/profile/doctor' : '/profile/patient');
+        router.push(homeFor(user.role));
       }
     } catch (err) {
       setError(getErrorMessage(err));
@@ -68,7 +75,7 @@ function LoginForm() {
             required
           />
         </div>
-        <button type="submit" className="btn btn-block btn-lg" disabled={submitting}>
+        <button id="loginSubmit" type="submit" className="btn btn-block btn-lg" disabled={submitting}>
           {submitting ? <span className="spinner" /> : <><LogIn size={18} /> Sign In</>}
         </button>
       </form>
@@ -78,7 +85,7 @@ function LoginForm() {
         <Link href="/register/patient">Register as a patient</Link>
       </p>
       <p className="auth-switch" style={{ marginTop: 6 }}>
-        Are you a doctor? <Link href="/register/doctor">Create a doctor profile</Link>
+        Doctor or nurse? <Link href="/register/doctor">Join as a doctor</Link> · <Link href="/register/nurse">Join as a nurse</Link>
       </p>
     </div>
   );

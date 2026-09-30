@@ -1,0 +1,30 @@
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
+@media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+.mainCol, .sideCol { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.sideCol { position: sticky; top: 84px; }
+@media (max-width: 1100px) { .sideCol { position: static; } }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.boxTitle { font-size: .95rem; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-weight: 600; font-size: .88rem; color: var(--ink); }
+.hint { color: var(--muted); font-size: .8rem; font-weight: 400; }
+.titleInput { font-size: 1.2rem; font-weight: 600; font-family: var(--font-heading); }
+.slugRow { display: flex; align-items: center; gap: 8px; }
+.slugRow input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; font-size: .9rem; }
+.slugPrefix { color: var(--muted); font-size: .88rem; }
+.smallBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: .82rem; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: inherit; }
+.smallBtn:hover { border-color: var(--blue); color: var(--blue); }
+.count { font-weight: 600; font-size: .76rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.countGood { color: #1d7a34; }
+.countOk { color: #8a5a00; }
+.countBad { color: #a42020; }
+.btnCol { display: flex; flex-direction: column; gap: 8px; }
+.ok { background: #e5f5e9; color: #1d7a34; padding: 10px 12px; border-radius: 10px; font-size: .88rem; font-weight: 600; }
+.drop { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 22px 12px; border: 2px dashed var(--line); border-radius: 12px; background: var(--surface-2); color: var(--muted); font-size: .82rem; cursor: pointer; font-family: inherit; }
+.drop:hover { border-color: var(--blue); color: var(--blue); }
+.banner { display: flex; flex-direction: column; gap: 8px; }
+.banner img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 10px; }
+.serp { display: flex; flex-direction: column; gap: 3px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-family: arial, sans-serif; }
+.serpUrl { font-size: .75rem; color: #4d5156; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.serpTitle { font-size: 1.05rem; color: #1a0dab; line-height: 1.3; }
+.serpDesc { font-size: .82rem; color: #4d5156; line-height: 1.45; }

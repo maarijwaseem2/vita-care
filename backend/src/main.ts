@@ -1,34 +1,21 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
-import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { configureApp } from './app.setup';
+import { assertSafeConfig } from './config/env.check';
 
 async function bootstrap() {
+  assertSafeConfig();
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
-  // All routes are served under /api (e.g. /api/doctors, /api/auth/login).
-  app.setGlobalPrefix('api');
-
-  // Validate + strip unknown properties on every incoming request body.
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-
-  // Consistent JSON error responses across the whole API.
-  app.useGlobalFilters(new AllExceptionsFilter());
-
-  // Allow the Next.js frontend to call the API.
   const origins = (config.get<string>('CORS_ORIGIN') ?? 'http://localhost:3000')
     .split(',')
-    .map((o) => o.trim());
-  app.enableCors({ origin: origins, credentials: true });
+    .map((o) => o.trim())
+    .filter(Boolean);
+  configureApp(app, origins);
+  app.enableShutdownHooks();
 
   const port = config.get<number>('PORT') ?? 4000;
   await app.listen(port);

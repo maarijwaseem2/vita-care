@@ -81,6 +81,29 @@ export class Doctor {
   @Column({ type: 'decimal', precision: 2, scale: 1, default: 4.5 })
   rating: number;
 
+  /** Pakistan Medical & Dental Council registration number. */
+  @Column({ name: 'pmdc_number', type: 'varchar', length: 30, nullable: true })
+  pmdcNumber: string | null;
+
+  /** pending → verified / rejected by an admin. Only verified doctors are listed. */
+  @Column({ name: 'verification_status', type: 'varchar', length: 12, default: 'pending' })
+  verificationStatus: 'pending' | 'verified' | 'rejected';
+
+  @Column({ name: 'verification_note', type: 'text', nullable: true })
+  verificationNote: string | null;
+
+  @Column({ name: 'verified_at', type: 'timestamp', nullable: true })
+  verifiedAt: Date | null;
+
+  @Column({ name: 'clinic_name', type: 'varchar', length: 200, nullable: true })
+  clinicName: string | null;
+
+  @Column({ name: 'experience_years', type: 'int', nullable: true })
+  experienceYears: number | null;
+
+  @Column({ type: 'json', nullable: true })
+  languages: string[] | null;
+
   @OneToMany(() => Appointment, (appointment) => appointment.doctor)
   appointments: Appointment[];
 

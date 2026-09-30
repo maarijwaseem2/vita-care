@@ -1,0 +1,15 @@
+url: http://localhost:3000
+name: 01_public_home_navigation
+tags: [smoke, public]
+---
+- launchApp
+- assertVisible: "Know which doctor to see, before you leave home."
+- tapOn: "Find a Doctor"
+- assertVisible: "Search trusted specialists"
+- tapOn: "Home Nursing"
+- assertVisible: "A verified nurse at your door, connected to your doctor"
+- tapOn: "Blog"
+- assertVisible: "Health blog"
+- assertVisible: ".*Next.*"
+- tapOn: ".*Next.*"
+- assertVisible: ".*Previous.*"

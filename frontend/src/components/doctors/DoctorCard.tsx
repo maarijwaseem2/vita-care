@@ -1,39 +1,51 @@
 import Link from 'next/link';
-import { MapPin, Star, Stethoscope } from 'lucide-react';
+import { CalendarClock, MapPin, Star } from 'lucide-react';
+import Avatar from '@/components/ui/Avatar';
 import type { Doctor } from '@/lib/types';
 import styles from './DoctorCard.module.css';
 
-/** Placeholder avatar when a doctor has no photo. */
-const FALLBACK = '/images/doctors/leo-mario.png';
-
-export default function DoctorCard({ doctor }: { doctor: Doctor }) {
+export default function DoctorCard({
+  doctor,
+  bookHref,
+  compact = false,
+}: {
+  doctor: Doctor;
+  /** Override the booking link (e.g. to attach an AI summary). */
+  bookHref?: string;
+  compact?: boolean;
+}) {
   const fullName = `${doctor.title} ${doctor.firstName} ${doctor.lastName}`;
 
   return (
-    <article className={`card card-hover ${styles.card}`}>
-      <div className={styles.media}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={doctor.imageUrl || FALLBACK} alt={fullName} />
-        <span className={`badge badge-cyan ${styles.specialty}`}>
-          <Stethoscope size={13} /> {doctor.specialty}
-        </span>
+    <article className={`card card-hover ${styles.card} ${compact ? styles.compact : ''}`}>
+      <div className={styles.head}>
+        <Avatar name={fullName} src={doctor.imageUrl} size={compact ? 48 : 72} />
+        <div className={styles.headText}>
+          <h3 className={styles.name}>{fullName}</h3>
+          <div className={styles.tags}>
+            <span className={styles.specialty}>{doctor.specialty}</span>
+            <span className={styles.rating} aria-label={`Rating ${Number(doctor.rating).toFixed(1)} out of 5`}>
+              <Star size={13} fill="currentColor" /> {Number(doctor.rating).toFixed(1)}
+            </span>
+          </div>
+        </div>
       </div>
 
       <div className={styles.body}>
-        <div className={styles.headRow}>
-          <h3 className={styles.name}>{fullName}</h3>
-          <span className={styles.rating}>
-            <Star size={14} fill="currentColor" /> {Number(doctor.rating).toFixed(1)}
-          </span>
+        <div className={styles.metaRow}>
+          {doctor.city && (
+            <span className={styles.meta}>
+              <MapPin size={14} /> {doctor.city}
+            </span>
+          )}
+          {doctor.opdSchedule && (
+            <span className={styles.meta}>
+              <CalendarClock size={14} /> {doctor.opdSchedule}
+            </span>
+          )}
         </div>
 
-        {doctor.city && (
-          <p className={styles.meta}>
-            <MapPin size={15} /> {doctor.city}
-          </p>
-        )}
-
-        {doctor.bio && <p className={styles.bio}>{doctor.bio}</p>}
+        {!compact && doctor.bio && <p className={styles.bio}>{doctor.bio}</p>}
 
         <div className={styles.footer}>
           <div className={styles.fees}>
@@ -41,10 +53,12 @@ export default function DoctorCard({ doctor }: { doctor: Doctor }) {
             <strong>Rs {Number(doctor.fees).toLocaleString()}</strong>
           </div>
           <div className={styles.actions}>
-            <Link href={`/doctors/${doctor.id}`} className="btn btn-outline btn-sm">
-              Profile
-            </Link>
-            <Link href={`/appointments/${doctor.id}`} className="btn btn-sm">
+            {!compact && (
+              <Link href={`/doctors/${doctor.id}`} className={`btn btn-outline btn-sm ${styles.actionBtn}`}>
+                Profile
+              </Link>
+            )}
+            <Link href={bookHref ?? `/appointments/${doctor.id}`} className={`btn btn-sm ${styles.actionBtn}`}>
               Book
             </Link>
           </div>

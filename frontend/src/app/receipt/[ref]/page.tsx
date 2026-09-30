@@ -18,21 +18,22 @@ import Loader from '@/components/ui/Loader';
 import EmptyState from '@/components/ui/EmptyState';
 import { appointmentsApi, getErrorMessage } from '@/lib/api';
 import type { Appointment } from '@/lib/types';
+import { formatDay } from '@/lib/dates';
 import styles from './receipt.module.css';
 
 export default function ReceiptPage() {
-  const { id } = useParams<{ id: string }>();
+  const { ref } = useParams<{ ref: string }>();
   const [appt, setAppt] = useState<Appointment | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     appointmentsApi
-      .receipt(Number(id))
+      .receipt(decodeURIComponent(ref))
       .then(setAppt)
       .catch((err) => setError(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [ref]);
 
   if (loading) return <Loader label="Preparing your receipt…" />;
   if (error || !appt) {
@@ -51,13 +52,13 @@ export default function ReceiptPage() {
   const doctorName = doctor
     ? `${doctor.title} ${doctor.firstName} ${doctor.lastName}`
     : 'Doctor';
-  const prettyDate = new Date(appt.date).toLocaleDateString('en-GB', {
+  const prettyDate = formatDay(appt.date, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   });
-  const ref = `VC-${String(appt.id).padStart(6, '0')}`;
+  const reference = appt.reference;
 
   return (
     <div className="container" style={{ padding: '32px 20px 64px' }}>
@@ -74,8 +75,12 @@ export default function ReceiptPage() {
         <div className={styles.confirmed}>
           <CheckCircle2 size={44} />
           <div>
-            <h1>Appointment confirmed</h1>
-            <p>A copy of this receipt has been generated for your records.</p>
+            <h1>{appt.status === 'cancelled' ? 'Appointment cancelled' : appt.status === 'completed' ? 'Visit completed' : 'Appointment confirmed'}</h1>
+            <p>
+              {appt.status === 'cancelled'
+                ? 'This appointment was cancelled.'
+                : 'Keep this reference. You can open this receipt again from the same link.'}
+            </p>
           </div>
         </div>
 
@@ -87,7 +92,7 @@ export default function ReceiptPage() {
           </div>
           <div className={styles.ref}>
             <span>Reference</span>
-            <strong>{ref}</strong>
+            <strong>{reference}</strong>
           </div>
         </div>
 
@@ -145,6 +150,16 @@ export default function ReceiptPage() {
           </section>
         </div>
 
+        {appt.aiSummaryShared && (
+          <div className={styles.reason}>
+            <h3 className={styles.blockTitle}>AI Doctor summary</h3>
+            <p>
+              Your AI Doctor summary was shared with the doctor, so they can review your
+              symptoms and history before the visit.
+            </p>
+          </div>
+        )}
+
         {appt.reason && (
           <div className={styles.reason}>
             <h3 className={styles.blockTitle}>Reason for visit</h3>
@@ -154,8 +169,8 @@ export default function ReceiptPage() {
 
         <div className={styles.footer}>
           <p>
-            Please arrive 10 minutes early and bring any previous medical
-            records. To reschedule, contact the clinic directly.
+            Please arrive 10 minutes early. Your medical history is already on
+            Vita Care if you booked while signed in. To cancel, open your account.
           </p>
           <p className={styles.thanks}>Thank you for choosing Vita Care.</p>
         </div>

@@ -23,7 +23,8 @@
   border: 4px solid rgba(255, 255, 255, 0.2);
   box-shadow: var(--shadow-lg);
 }
-.photo img { width: 100%; height: 100%; object-fit: cover; }
+.photo img, .photo > span { width: 100% !important; height: 100% !important; object-fit: cover; }
+.photo > span { font-size: 3.4rem !important; border-radius: 0 !important; }
 
 .heroInfo h1 { color: #fff; font-size: clamp(1.7rem, 3vw, 2.4rem); margin: 12px 0 10px; }
 .bio { color: rgba(255, 255, 255, 0.85); max-width: 560px; margin-bottom: 16px; }

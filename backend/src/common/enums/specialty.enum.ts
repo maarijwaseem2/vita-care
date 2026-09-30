@@ -1,7 +1,9 @@
 /**
  * Medical departments / specialties offered by Vita Care.
- * These map 1:1 to the department cards shown on the landing page and are
- * what the AI Doctor recommends after analysing a patient's symptoms.
+ * These map to the department cards on the landing page and are what the
+ * AI Doctor recommends after analysing a patient's symptoms.
+ *
+ * NOTE: adding a value here requires a migration (Postgres enum type).
  */
 export enum Specialty {
   NEUROLOGY = 'Neurology',
@@ -9,4 +11,8 @@ export enum Specialty {
   OSTEOPOROSIS = 'Osteoporosis',
   ENT = 'ENT',
   GENERAL = 'General Physician',
+  PEDIATRICS = 'Pediatrics',
+  GYNECOLOGY = 'Gynecology',
+  DERMATOLOGY = 'Dermatology',
+  PSYCHIATRY = 'Psychiatry',
 }

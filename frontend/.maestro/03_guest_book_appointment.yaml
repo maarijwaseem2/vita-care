@@ -1,0 +1,22 @@
+url: http://localhost:3000
+name: 03_guest_book_appointment
+tags: [public, booking]
+---
+- openLink: http://localhost:3000/appointments/1
+- assertVisible: "Book an appointment"
+- tapOn:
+    id: firstAvailableSlot
+- scrollUntilVisible:
+    element:
+      id: patientName
+- tapOn:
+    id: patientName
+- inputText: "Maestro Tester"
+- tapOn:
+    id: patientPhone
+- inputText: "03001234567"
+- scrollUntilVisible:
+    element: ".*Confirm appointment.*"
+- tapOn: ".*Confirm appointment.*"
+- assertVisible: "Appointment confirmed"
+- assertVisible: "VC-.*"

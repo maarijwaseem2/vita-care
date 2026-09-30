@@ -1,0 +1,22 @@
+.frame { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border-bottom: 1px solid var(--line); background: var(--surface-2); position: sticky; top: 64px; z-index: 5; border-radius: 12px 12px 0 0; }
+.group { display: flex; gap: 2px; padding-inline-end: 6px; margin-inline-end: 2px; border-inline-end: 1px solid var(--line); }
+.group:last-child { border: 0; }
+.tb { width: 34px; height: 34px; display: grid; place-items: center; border: 0; background: transparent; border-radius: 8px; color: var(--ink); cursor: pointer; }
+.tb:hover { background: var(--surface-3); }
+.tb:disabled { opacity: .35; cursor: default; }
+.tb:focus-visible { outline: 2px solid var(--cyan); }
+.tbActive { background: var(--navy); color: #fff; }
+.tbActive:hover { background: var(--navy); }
+
+.prose { min-height: 380px; padding: 20px 24px; outline: none; font-size: 1.02rem; line-height: 1.75; color: var(--body); }
+.prose h2 { font-size: 1.4rem; margin: 1.3em 0 .5em; }
+.prose h3 { font-size: 1.15rem; margin: 1.2em 0 .4em; }
+.prose p { margin: 0 0 .9em; }
+.prose ul, .prose ol { padding-inline-start: 1.4em; margin: 0 0 1em; }
+.prose blockquote { border-inline-start: 4px solid var(--saffron); background: #fdf6ea; margin: 1em 0; padding: 10px 16px; border-radius: 0 10px 10px 0; }
+.prose img { max-width: 100%; border-radius: 10px; }
+.prose img:global(.ProseMirror-selectednode) { outline: 3px solid var(--cyan); }
+.prose a { color: var(--blue); text-decoration: underline; }
+.prose hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
+.prose :global(p.is-editor-empty:first-child::before) { content: attr(data-placeholder); color: var(--muted); float: left; height: 0; pointer-events: none; }

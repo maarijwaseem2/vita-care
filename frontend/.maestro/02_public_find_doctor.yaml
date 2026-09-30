@@ -1,0 +1,13 @@
+url: http://localhost:3000
+name: 02_public_find_doctor
+tags: [public]
+---
+- openLink: http://localhost:3000/doctors
+- assertVisible: "Search trusted specialists"
+- tapOn:
+    id: doctorSearch
+- inputText: "Saif"
+- assertVisible: "Dr Saif Ur Rehman"
+- openLink: http://localhost:3000/doctors/1
+- assertVisible: "Dr Saif Ur Rehman"
+- assertVisible: ".*Book appointment.*"

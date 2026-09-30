@@ -3,7 +3,9 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
+  MaxLength,
   MinLength,
 } from 'class-validator';
 
@@ -13,21 +15,38 @@ export class CreateAppointmentDto {
 
   @IsString()
   @MinLength(2, { message: 'Patient name is required' })
+  @MaxLength(120)
   patientName: string;
 
   @IsString()
   @Matches(/^[0-9+\-\s()]{7,20}$/, { message: 'A valid phone number is required' })
   patientPhone: string;
 
-  @IsDateString({}, { message: 'Date must be valid (YYYY-MM-DD)' })
+  @IsDateString({ strict: true }, { message: 'Date must be valid (YYYY-MM-DD)' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Date must be in YYYY-MM-DD format' })
   date: string;
 
-  // e.g. "10:00 AM" — validated as a non-empty slot label.
-  @IsString()
-  @MinLength(3, { message: 'A time slot is required' })
+  // e.g. "05:30 PM" — must also fall inside the doctor's OPD hours (checked in the service).
+  @Matches(/^(0[1-9]|1[0-2]):[0-5]\d (AM|PM)$/, { message: 'Please choose a valid time slot' })
   timeSlot: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   reason?: string;
+
+  /** Attach an AI Doctor consultation so the doctor sees the summary. */
+  @IsOptional()
+  @IsUUID()
+  triageSessionToken?: string;
+}
+
+export class UpdateStatusDto {
+  @Matches(/^(completed|cancelled)$/, { message: 'Status must be "completed" or "cancelled"' })
+  status: 'completed' | 'cancelled';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  doctorNotes?: string;
 }

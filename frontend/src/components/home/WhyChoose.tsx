@@ -31,7 +31,7 @@ export default function WhyChoose() {
         <div className={styles.whyGrid}>
           <div className={styles.whyArt}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/about/about-us.png" alt="Doctors at Vita Care" />
+            <img src="/images/about/about-us.jpg" alt="Doctors and nurses at Vita Care" />
           </div>
           <div>
             <span className="eyebrow">Why Vita Care</span>

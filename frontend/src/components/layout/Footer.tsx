@@ -1,16 +1,24 @@
+'use client';
+
 import Link from 'next/link';
-import { Stethoscope, Mail, Phone, MapPin } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { Mail, Phone, MapPin } from 'lucide-react';
+import Logo from '@/components/brand/Logo';
 import styles from './Footer.module.css';
 
-const DEPARTMENTS = ['Neurology', 'Heart Care', 'Osteoporosis', 'ENT'];
+const DEPARTMENTS = ['Heart Care', 'Neurology', 'Pediatrics', 'Gynecology', 'Dermatology', 'ENT'];
 const QUICK = [
   { href: '/doctors', label: 'Find a Doctor' },
   { href: '/ai-doctor', label: 'AI Doctor' },
   { href: '/blog', label: 'Health Blog' },
   { href: '/register/doctor', label: 'Join as a Doctor' },
+  { href: '/register/nurse', label: 'Join as a Nurse' },
+  { href: '/home-care', label: 'Home Nursing' },
 ];
 
 export default function Footer() {
+  const pathname = usePathname();
+  if (pathname?.startsWith('/admin')) return null;
   const year = new Date().getFullYear();
 
   return (
@@ -19,16 +27,12 @@ export default function Footer() {
         <div className={styles.top}>
           <div className={styles.brandCol}>
             <div className={styles.brand}>
-              <span className={styles.mark}>
-                <Stethoscope size={22} />
-              </span>
-              <span className={styles.name}>
-                Vita<span>Care</span>
-              </span>
+              <Logo tone="light" size={36} />
             </div>
             <p className={styles.tagline}>
-              Better healthcare, made accessible. Find trusted doctors, book
-              appointments online, and keep your medical records in one place.
+              Tell us how you feel in Urdu, Roman Urdu or English. Vita Care asks the
+              right questions, spots emergencies, and hands your story to a
+              verified doctor.
             </p>
           </div>
 
@@ -37,7 +41,7 @@ export default function Footer() {
             <ul>
               {DEPARTMENTS.map((d) => (
                 <li key={d}>
-                  <Link href="/doctors">{d}</Link>
+                  <Link href={`/doctors?specialty=${encodeURIComponent(d)}`}>{d}</Link>
                 </li>
               ))}
             </ul>
@@ -71,7 +75,7 @@ export default function Footer() {
         </div>
 
         <div className={styles.bottom}>
-          <p>© {year} Vita Care. Built as a final year project.</p>
+          <p>© {year} Vita Care. Built for the Alibaba Cloud AI Hackathon 2026.</p>
           <p className={styles.disclaimer}>
             AI guidance is preliminary and not a substitute for professional
             medical advice.

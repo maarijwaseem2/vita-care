@@ -19,7 +19,7 @@ import { Patient } from '../patients/entities/patient.entity';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') ?? 'dev-secret',
+        secret: config.get<string>('JWT_SECRET') || 'dev-secret',
         signOptions: {
           expiresIn: config.get<string>('JWT_EXPIRES_IN') ?? '7d',
         },

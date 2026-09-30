@@ -1,4 +1,4 @@
-import { mapSpecialty, parseStructuredReply } from './chatbot.helpers';
+import { mapSpecialty, parseConsultReply, parseStructuredReply } from './chatbot.helpers';
 import { Specialty } from '../../common/enums';
 
 /**
@@ -49,8 +49,21 @@ describe('chatbot.helpers', () => {
     });
 
     it('returns null when nothing matches', () => {
-      expect(mapSpecialty('dermatology')).toBeNull();
       expect(mapSpecialty('random text')).toBeNull();
+      expect(mapSpecialty('   ')).toBeNull();
+    });
+
+    it('maps the newer departments', () => {
+      expect(mapSpecialty('Dermatology')).toBe(Specialty.DERMATOLOGY);
+      expect(mapSpecialty('skin clinic')).toBe(Specialty.DERMATOLOGY);
+      expect(mapSpecialty('paediatrician')).toBe(Specialty.PEDIATRICS);
+      expect(mapSpecialty('Obstetrics & Gynaecology')).toBe(Specialty.GYNECOLOGY);
+      expect(mapSpecialty('Psychiatry')).toBe(Specialty.PSYCHIATRY);
+    });
+
+    it('does not confuse "mental" or "patient" with ENT', () => {
+      expect(mapSpecialty('mental health')).toBe(Specialty.PSYCHIATRY);
+      expect(mapSpecialty('outpatient general clinic')).toBe(Specialty.GENERAL);
     });
   });
 
@@ -111,6 +124,51 @@ describe('chatbot.helpers', () => {
         urgency: 'emergency',
       });
       expect(parseStructuredReply(raw).urgency).toBe('emergency');
+    });
+  });
+
+  describe('parseConsultReply()', () => {
+    it('parses the full interview shape and caps list sizes', () => {
+      const raw = JSON.stringify({
+        reply: 'How long have you had it?',
+        stage: 'interviewing',
+        urgency: 'routine',
+        recommendedSpecialty: null,
+        quickReplies: ['Today', '2-3 days', 'A week', 'Longer', 'Extra'],
+        possibleConditions: [],
+      });
+      const r = parseConsultReply(raw);
+      expect(r.stage).toBe('interviewing');
+      expect(r.quickReplies).toHaveLength(4);
+      expect(r.summary).toBeNull();
+    });
+
+    it('parses an assessment with conditions and a clinical summary', () => {
+      const raw = 'Here you go: ' + JSON.stringify({
+        reply: 'This sounds like a tension headache.',
+        stage: 'assessment',
+        urgency: 'soon',
+        recommendedSpecialty: 'Neurology',
+        possibleConditions: [
+          { name: 'Tension headache', likelihood: 'more likely', why: 'Band-like pain' },
+          { name: 'Migraine', likelihood: 'weird', why: 'Light sensitivity' },
+          { name: '' },
+        ],
+        summary: { chiefComplaint: 'Headache x3 days', associatedSymptoms: ['nausea'] },
+      });
+      const r = parseConsultReply(raw);
+      expect(r.stage).toBe('assessment');
+      expect(r.possibleConditions).toHaveLength(2);
+      expect(r.possibleConditions[1].likelihood).toBe('possible');
+      expect(r.summary?.chiefComplaint).toBe('Headache x3 days');
+      expect(r.summary?.associatedSymptoms).toEqual(['nausea']);
+    });
+
+    it('survives garbage', () => {
+      const r = parseConsultReply('not json at all');
+      expect(r.reply).toBe('not json at all');
+      expect(r.quickReplies).toEqual([]);
+      expect(r.stage).toBe('interviewing');
     });
   });
 });

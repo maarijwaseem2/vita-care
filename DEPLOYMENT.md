@@ -64,9 +64,10 @@ DATABASE_URL   = <the Neon connection string from step 1>
 JWT_SECRET     = <a long random string — e.g. output of: openssl rand -base64 48>
 JWT_EXPIRES_IN = 7d
 CORS_ORIGIN    = http://localhost:3000        # update after Vercel is live (step 4)
-AI_API_KEY     = <your OpenAI key>            # a NEW rotated key, not the old one
-AI_BASE_URL    = https://api.openai.com/v1
-AI_MODEL       = gpt-4o-mini
+AI_API_KEY     = <your Alibaba Cloud Model Studio key>
+AI_BASE_URL    = https://dashscope-intl.aliyuncs.com/compatible-mode/v1
+AI_MODEL       = qwen-plus
+AI_VISION_MODEL = qwen-vl-max
 NODE_ENV       = production
 ```
 
@@ -133,8 +134,8 @@ Save — Render redeploys. The frontend can now call the API.
 - [ ] The Vercel site loads and lists doctors
 - [ ] Register / login works (token is stored, protected pages load)
 - [ ] Booking the same slot twice shows "already booked" (409) — not a 500
-- [ ] AI Doctor replies (needs a valid `AI_API_KEY`); without a key it shows the
-      friendly "not switched on" message instead of crashing
+- [ ] `/api/chatbot/status` shows `aiEnabled: true` and the AI Doctor badge says Qwen;
+      without a key the AI Doctor runs in labelled offline mode instead of failing
 
 ---
 

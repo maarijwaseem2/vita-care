@@ -14,14 +14,16 @@ import {
   Stethoscope,
   ArrowLeft,
   CalendarCheck,
+  BadgeCheck,
+  Languages,
 } from 'lucide-react';
+import Avatar from '@/components/ui/Avatar';
 import Loader from '@/components/ui/Loader';
 import EmptyState from '@/components/ui/EmptyState';
 import { doctorsApi, getErrorMessage } from '@/lib/api';
 import type { Doctor } from '@/lib/types';
 import styles from './profile.module.css';
 
-const FALLBACK = '/images/doctors/leo-mario.png';
 
 export default function DoctorProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -66,13 +68,17 @@ export default function DoctorProfilePage() {
 
           <div className={styles.heroInner}>
             <div className={styles.photo}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={doctor.imageUrl || FALLBACK} alt={fullName} />
+              <Avatar name={fullName} src={doctor.imageUrl} size={148} />
             </div>
             <div className={styles.heroInfo}>
-              <span className="badge badge-cyan">
-                <Stethoscope size={13} /> {doctor.specialty}
-              </span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <span className="badge badge-cyan">
+                  <Stethoscope size={13} /> {doctor.specialty}
+                </span>
+                <span className="badge badge-green" title={doctor.pmdcNumber ? `PMDC ${doctor.pmdcNumber}` : undefined}>
+                  <BadgeCheck size={13} /> PMDC verified
+                </span>
+              </div>
               <h1>{fullName}</h1>
               {doctor.bio && <p className={styles.bio}>{doctor.bio}</p>}
 
@@ -89,6 +95,16 @@ export default function DoctorProfilePage() {
                 {doctor.phone && (
                   <span>
                     <Phone size={16} /> {doctor.phone}
+                  </span>
+                )}
+                {doctor.experienceYears != null && (
+                  <span>
+                    <Briefcase size={16} /> {doctor.experienceYears} yrs experience
+                  </span>
+                )}
+                {!!doctor.languages?.length && (
+                  <span>
+                    <Languages size={16} /> {doctor.languages.join(', ')}
                   </span>
                 )}
               </div>

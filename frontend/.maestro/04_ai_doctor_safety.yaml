@@ -1,0 +1,26 @@
+url: http://localhost:3000
+name: 04_ai_doctor_safety
+tags: [ai, safety]
+---
+- openLink: http://localhost:3000/ai-doctor
+- assertVisible: "AI Doctor"
+# Negated symptom must NOT raise the emergency banner
+- tapOn:
+    id: symptomInput
+- inputText: "chest pain nahi hai, sirf khansi hai"
+- tapOn:
+    id: sendMessage
+- extendedWaitUntil:
+    visible: "Assessment"
+    timeout: 15000
+- assertNotVisible: ".*Rescue 1122.*"
+# A real red flag must raise it
+- tapOn:
+    id: symptomInput
+- inputText: "seenay mein dard ho raha hai aur paseena"
+- tapOn:
+    id: sendMessage
+- extendedWaitUntil:
+    visible: ".*Detected: Chest pain or pressure.*"
+    timeout: 15000
+- assertVisible: ".*Rescue 1122.*"

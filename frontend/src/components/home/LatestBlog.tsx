@@ -15,8 +15,8 @@ export default function LatestBlog() {
 
   useEffect(() => {
     blogApi
-      .list()
-      .then((data) => setPosts(data.slice(0, 3)))
+      .list({ limit: 3 })
+      .then((d) => setPosts(d.items))
       .catch(() => setPosts([]))
       .finally(() => setLoading(false));
   }, []);

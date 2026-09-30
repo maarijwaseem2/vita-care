@@ -8,5 +8,6 @@ import { BlogController } from './blog.controller';
   imports: [TypeOrmModule.forFeature([BlogPost])],
   controllers: [BlogController],
   providers: [BlogService],
+  exports: [BlogService],
 })
 export class BlogModule {}

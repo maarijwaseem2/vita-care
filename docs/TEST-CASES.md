@@ -15,8 +15,8 @@ Legend for **Status**: ✅ Pass · ⛔ Fail · ⏳ Not run
 
 ## Part 1 — Automated tests (executed, all passing)
 
-**Result:** `Test Suites: 2 total · Tests: 50 passed, 50 total`
-(15 unit + 35 end‑to‑end). Commands: `npm test` and `npm run test:e2e` in
+**Result (30 Sep 2026):** unit `111 passed`, e2e `91 passed`, Maestro `10 flows` — see `WORK-SUMMARY.md`. The detailed case list below is from the first version and is kept for reference.
+(111 unit + 91 end‑to‑end, plus 10 Maestro UI flows). Commands: `npm test` and `npm run test:e2e` in
 `backend/`.
 
 ### 1a. Unit tests — `src/modules/chatbot/chatbot.helpers.spec.ts`

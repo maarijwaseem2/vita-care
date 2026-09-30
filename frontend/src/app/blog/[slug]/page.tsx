@@ -1,114 +1,119 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, CalendarDays, User } from 'lucide-react';
-import Loader from '@/components/ui/Loader';
-import EmptyState from '@/components/ui/EmptyState';
-import { blogApi, getErrorMessage } from '@/lib/api';
-import type { BlogPost } from '@/lib/types';
-import styles from './article.module.css';
+import { notFound } from 'next/navigation';
+import { ArrowLeft, CalendarDays, Clock, UserRound } from 'lucide-react';
+import BlogCard, { formatDate } from '@/components/blog/BlogCard';
+import { serverBlog } from '@/lib/server-api';
+import { SITE_URL, mediaUrl } from '@/lib/media';
+import styles from '@/components/blog/blog.module.css';
 
-/**
- * Render plain-text article content into readable blocks.
- * Supports blank-line paragraph breaks, "## " subheadings and "- " bullets.
- */
-function renderContent(content: string) {
-  const blocks = content.split(/\n\s*\n/).filter((b) => b.trim());
-  return blocks.map((block, i) => {
-    const trimmed = block.trim();
-    if (trimmed.startsWith('## ')) {
-      return <h2 key={i}>{trimmed.slice(3)}</h2>;
-    }
-    const lines = trimmed.split('\n');
-    if (lines.every((l) => l.trim().startsWith('- '))) {
-      return (
-        <ul key={i}>
-          {lines.map((l, j) => (
-            <li key={j}>{l.trim().slice(2)}</li>
-          ))}
-        </ul>
-      );
-    }
-    return <p key={i}>{trimmed}</p>;
-  });
+type Props = { params: { slug: string } };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const post = await serverBlog.get(params.slug);
+  if (!post) return { title: 'Article not found | Vita Care', robots: { index: false } };
+  const title = post.metaTitle || post.title;
+  const description = post.metaDescription || post.excerpt;
+  const url = `${SITE_URL}/blog/${post.slug}`;
+  const image = mediaUrl(post.imageUrl);
+  return {
+    title: `${title} | Vita Care`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'article',
+      title,
+      description,
+      url,
+      images: [{ url: image.startsWith('http') ? image : `${SITE_URL}${image}` }],
+      publishedTime: post.publishedAt,
+      modifiedTime: post.updatedAt,
+      authors: post.author ? [post.author] : undefined,
+    },
+    twitter: { card: 'summary_large_image', title, description },
+  };
 }
 
-export default function ArticlePage() {
-  const { slug } = useParams<{ slug: string }>();
-  const [post, setPost] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+export default async function ArticlePage({ params }: Props) {
+  const post = await serverBlog.get(params.slug);
+  if (!post) notFound();
 
-  useEffect(() => {
-    blogApi
-      .get(slug)
-      .then(setPost)
-      .catch((err) => setError(getErrorMessage(err)))
-      .finally(() => setLoading(false));
-  }, [slug]);
-
-  if (loading) return <Loader label="Loading article…" />;
-  if (error || !post) {
-    return (
-      <div className="container" style={{ padding: '60px 20px' }}>
-        <EmptyState
-          title="Article not found"
-          message={error}
-          action={<Link href="/blog" className="btn">Back to journal</Link>}
-        />
-      </div>
-    );
-  }
-
-  const date = new Date(post.publishedAt).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'MedicalWebPage',
+    headline: post.title,
+    description: post.metaDescription || post.excerpt,
+    datePublished: post.publishedAt,
+    dateModified: post.updatedAt ?? post.publishedAt,
+    author: post.author ? { '@type': 'Person', name: post.author } : { '@type': 'Organization', name: 'Vita Care' },
+    publisher: { '@type': 'Organization', name: 'Vita Care' },
+    image: mediaUrl(post.imageUrl),
+    mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
+  };
 
   return (
-    <article className={styles.wrap}>
-      <div className={styles.inner}>
+    <article>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <header className={styles.articleHead}>
         <Link href="/blog" className={styles.back}>
           <ArrowLeft size={16} /> All articles
         </Link>
-
-        {post.category && <span className="badge badge-cyan">{post.category}</span>}
-        <h1 className={styles.title}>{post.title}</h1>
-
-        <div className={styles.meta}>
-          <span>
-            <CalendarDays size={15} /> {date}
-          </span>
-          {post.author && (
-            <span>
-              <User size={15} /> {post.author}
-            </span>
+        <div>
+          {post.category && (
+            <Link href={`/blog?category=${encodeURIComponent(post.category)}`} className={styles.articleCategory}>
+              {post.category}
+            </Link>
           )}
         </div>
-
-        <div className={styles.cover}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={post.imageUrl || '/images/blog/covid-19.png'}
-            alt={post.title}
-          />
+        <h1 className={styles.articleTitle}>{post.title}</h1>
+        <div className={styles.articleMeta}>
+          {post.author && (
+            <span className={styles.metaIcon}>
+              <UserRound size={15} /> {post.author}
+            </span>
+          )}
+          <span className={styles.metaIcon}>
+            <CalendarDays size={15} /> <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+          </span>
+          <span className={styles.metaIcon}>
+            <Clock size={15} /> {post.readingMinutes ?? 3} min read
+          </span>
         </div>
+      </header>
 
-        <div className={styles.content}>{renderContent(post.content)}</div>
+      <figure className={styles.banner}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={mediaUrl(post.imageUrl)} alt="" />
+      </figure>
 
-        <div className={styles.cta}>
-          <div>
-            <h3>Have a health concern?</h3>
-            <p>Book an appointment with a specialist near you.</p>
+      {/* Content is sanitised on the server when it is saved. */}
+      <div className={styles.prose} dangerouslySetInnerHTML={{ __html: post.content }} />
+
+      <aside className={styles.cta}>
+        <div>
+          <strong>Not sure what your symptoms mean?</strong>
+          <p>Tell the Vita Care AI Doctor in Urdu or English. It finds the right specialist for you.</p>
+        </div>
+        <Link href="/ai-doctor" className={styles.ctaBtn}>
+          Talk to the AI Doctor
+        </Link>
+      </aside>
+      <p className={styles.disclaimer}>
+        This article is general health information and does not replace advice from your own doctor. In an emergency call 1122.
+      </p>
+
+      {!!post.related?.length && (
+        <section className={styles.related} aria-labelledby="related-heading">
+          <div className="container">
+            <h2 id="related-heading">Related articles</h2>
+            <div className={styles.grid}>
+              {post.related.map((r) => (
+                <BlogCard key={r.id} post={r} />
+              ))}
+            </div>
           </div>
-          <Link href="/doctors" className="btn">
-            Find a doctor
-          </Link>
-        </div>
-      </div>
+        </section>
+      )}
     </article>
   );
 }

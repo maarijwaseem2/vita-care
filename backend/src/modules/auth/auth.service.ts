@@ -11,6 +11,8 @@ import { User } from '../users/entities/user.entity';
 import { Doctor } from '../doctors/entities/doctor.entity';
 import { Patient } from '../patients/entities/patient.entity';
 import { UsersService } from '../users/users.service';
+import { Nurse } from '../nurses/entities/nurse.entity';
+import { RegisterNurseDto } from '../nurses/dto/nurse.dto';
 import { UserRole } from '../../common/enums';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { RegisterDoctorDto } from './dto/register-doctor.dto';
@@ -43,6 +45,7 @@ export class AuthService {
 
   /** Register a patient: creates the User + Patient profile in one transaction. */
   async registerPatient(dto: RegisterPatientDto): Promise<AuthResponse> {
+    dto.email = dto.email.trim().toLowerCase();
     await this.ensureEmailAvailable(dto.email);
     const passwordHash = await bcrypt.hash(
       dto.password,
@@ -80,7 +83,30 @@ export class AuthService {
   }
 
   /** Register a doctor: creates the User + Doctor profile in one transaction. */
+  /** Nurses start as "pending" and cannot take visits until an admin verifies their PNC licence. */
+  async registerNurse(dto: RegisterNurseDto): Promise<AuthResponse> {
+    dto.email = dto.email.trim().toLowerCase();
+    await this.ensureEmailAvailable(dto.email);
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const user = await this.dataSource.transaction(async (manager) => {
+      const u = await manager.save(manager.create(User, { email: dto.email, passwordHash, role: UserRole.NURSE }));
+      await manager.save(
+        manager.create(Nurse, {
+          userId: u.id, firstName: dto.firstName.trim(), lastName: dto.lastName.trim(), gender: dto.gender,
+          phone: dto.phone ?? null, city: dto.city.trim(), areas: dto.areas ?? [], qualification: dto.qualification,
+          pncNumber: dto.pncNumber.toUpperCase(), skills: dto.skills, experienceYears: dto.experienceYears ?? null,
+          visitFee: dto.visitFee, availableDays: dto.availableDays ?? null, bio: dto.bio ?? null,
+          verificationStatus: 'pending',
+        }),
+      );
+      const n = await manager.findOne(Nurse, { where: { userId: u.id } });
+      return { u, nurseId: n!.id };
+    });
+    return this.buildAuthResponse(user.u.id, user.u.email, user.u.role, user.nurseId, `${dto.firstName.trim()} ${dto.lastName.trim()}`);
+  }
+
   async registerDoctor(dto: RegisterDoctorDto): Promise<AuthResponse> {
+    dto.email = dto.email.trim().toLowerCase();
     await this.ensureEmailAvailable(dto.email);
     const passwordHash = await bcrypt.hash(
       dto.password,
@@ -111,6 +137,13 @@ export class AuthService {
         opdSchedule: dto.opdSchedule,
         availableTime: dto.availableTime,
         fees: dto.fees ?? 0,
+        pmdcNumber: dto.pmdcNumber.toUpperCase(),
+        clinicName: dto.clinicName,
+        experienceYears: dto.experienceYears,
+        languages: dto.languages ?? [],
+        bio: dto.bio,
+        // New doctors are hidden from patients until an admin verifies PMDC.
+        verificationStatus: 'pending',
       });
       return manager.save(profile);
     });
@@ -126,7 +159,9 @@ export class AuthService {
 
   /** Verify credentials and return a signed token. */
   async login(dto: LoginDto): Promise<AuthResponse> {
-    const user = await this.usersService.findByEmailWithPassword(dto.email);
+    const user = await this.usersService.findByEmailWithPassword(
+      dto.email.trim().toLowerCase(),
+    );
     if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
@@ -137,6 +172,9 @@ export class AuthService {
     );
     if (!passwordMatches) {
       throw new UnauthorizedException('Invalid email or password');
+    }
+    if (!user.isActive) {
+      throw new UnauthorizedException('This account has been suspended. Please contact support.');
     }
 
     const { profileId, name } = await this.resolveProfile(user);
@@ -155,6 +193,11 @@ export class AuthService {
   private async resolveProfile(
     user: User,
   ): Promise<{ profileId: number; name: string }> {
+    if (user.role === UserRole.ADMIN) return { profileId: 0, name: 'Administrator' };
+    if (user.role === UserRole.NURSE) {
+      const nurse = await this.dataSource.getRepository(Nurse).findOne({ where: { userId: user.id } });
+      return { profileId: nurse?.id ?? 0, name: nurse ? `${nurse.firstName} ${nurse.lastName}` : 'Nurse' };
+    }
     if (user.role === UserRole.DOCTOR) {
       const doctor = await this.doctorsRepository.findOne({
         where: { userId: user.id },

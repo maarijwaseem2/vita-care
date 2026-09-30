@@ -10,7 +10,7 @@ import {
 import type { AuthResponse, AuthUser } from '@/lib/types';
 import { authApi, tokenStorage } from '@/lib/api';
 
-const USER_KEY = 'vita_care_user';
+const USER_KEY = 'vitacare_user';
 
 interface AuthContextValue {
   user: AuthUser | null;

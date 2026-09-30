@@ -1,0 +1,16 @@
+url: http://localhost:3000
+name: 06_patient_request_home_nurse
+tags: [patient, nursing]
+---
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: patient@vitacare.test }
+- assertVisible: ".*Home nursing visits.*"
+- openLink: http://localhost:3000/home-care
+- tapOn: "Injection / IV drip"
+- tapOn:
+    id: notes
+- inputText: "Maestro visit: Inj. B12 first dose"
+- tapOn: ".*Request home visit.*"
+- assertVisible: "Request sent"
+- assertVisible: "HN-.*"

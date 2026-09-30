@@ -1,92 +1,88 @@
-'use client';
-
-import { useEffect, useState } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, CalendarDays } from 'lucide-react';
-import Loader from '@/components/ui/Loader';
+import BlogCard from '@/components/blog/BlogCard';
+import Pagination from '@/components/blog/Pagination';
 import EmptyState from '@/components/ui/EmptyState';
-import { blogApi, getErrorMessage } from '@/lib/api';
-import type { BlogPost } from '@/lib/types';
-import styles from './blog.module.css';
+import { serverBlog } from '@/lib/server-api';
+import { SITE_URL } from '@/lib/media';
+import styles from '@/components/blog/blog.module.css';
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+type Props = { searchParams: { page?: string; category?: string } };
+
+const pageNum = (v?: string) => Math.max(1, Number.parseInt(v ?? '1', 10) || 1);
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const page = pageNum(searchParams.page);
+  const cat = searchParams.category;
+  const title = `${cat ? `${cat} articles` : 'Health blog'}${page > 1 ? ` – page ${page}` : ''} | Vita Care`;
+  const qs = new URLSearchParams({ ...(cat ? { category: cat } : {}), ...(page > 1 ? { page: String(page) } : {}) }).toString();
+  return {
+    title,
+    description:
+      'Doctor-written health articles for Pakistan: heart health, diabetes, dengue, child fever, mental health and understanding your lab reports.',
+    alternates: { canonical: `${SITE_URL}/blog${qs ? `?${qs}` : ''}` },
+    openGraph: { title, type: 'website', url: `${SITE_URL}/blog` },
+  };
 }
 
-export default function BlogListPage() {
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+export default async function BlogPage({ searchParams }: Props) {
+  const page = pageNum(searchParams.page);
+  const category = searchParams.category;
+  const [data, categories] = await Promise.all([serverBlog.list(page, category), serverBlog.categories()]);
 
-  useEffect(() => {
-    blogApi
-      .list()
-      .then(setPosts)
-      .catch((err) => setError(getErrorMessage(err)))
-      .finally(() => setLoading(false));
-  }, []);
+  const hrefFor = (p: number) => {
+    const q = new URLSearchParams({ ...(category ? { category } : {}), ...(p > 1 ? { page: String(p) } : {}) }).toString();
+    return `/blog${q ? `?${q}` : ''}`;
+  };
 
   return (
     <>
-      <header className={styles.hero}>
+      <section className={styles.hero}>
         <div className="container">
-          <span className="eyebrow">Vita Care Journal</span>
-          <h1>Health tips, guides &amp; expert advice</h1>
-          <p>
-            Practical, doctor-reviewed articles to help you understand your
-            health and make better decisions.
-          </p>
-        </div>
-      </header>
-
-      <section className="section-tight">
-        <div className="container">
-          {loading ? (
-            <Loader label="Loading articles…" />
-          ) : error ? (
-            <EmptyState title="Couldn't load articles" message={error} />
-          ) : posts.length === 0 ? (
-            <EmptyState
-              title="No articles yet"
-              message="Check back soon for health tips and guides."
-            />
-          ) : (
-            <div className="grid grid-3">
-              {posts.map((post) => (
+          <h1>Health blog</h1>
+          <p>Clear, practical articles from doctors on the questions patients ask most often.</p>
+          {!!categories?.length && (
+            <nav className={styles.filters} aria-label="Categories">
+              <Link href="/blog" className={`${styles.filter} ${!category ? styles.filterActive : ''}`}>
+                All
+              </Link>
+              {categories.map((c) => (
                 <Link
-                  key={post.id}
-                  href={`/blog/${post.slug}`}
-                  className={`card card-hover ${styles.card}`}
+                  key={c}
+                  href={`/blog?category=${encodeURIComponent(c)}`}
+                  className={`${styles.filter} ${category === c ? styles.filterActive : ''}`}
+                  aria-current={category === c ? 'page' : undefined}
                 >
-                  <div className={styles.thumb}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={post.imageUrl || '/images/blog/covid-19.png'}
-                      alt={post.title}
-                    />
-                    {post.category && (
-                      <span className={styles.tag}>{post.category}</span>
-                    )}
-                  </div>
-                  <div className={styles.body}>
-                    <div className={styles.meta}>
-                      <CalendarDays size={14} />
-                      {formatDate(post.publishedAt)}
-                      {post.author && <span>· {post.author}</span>}
-                    </div>
-                    <h3>{post.title}</h3>
-                    <p>{post.excerpt}</p>
-                    <span className={styles.read}>
-                      Read article <ArrowRight size={15} />
-                    </span>
-                  </div>
+                  {c}
                 </Link>
               ))}
-            </div>
+            </nav>
+          )}
+        </div>
+      </section>
+
+      <section className={styles.listSection}>
+        <div className="container">
+          {!data ? (
+            <EmptyState title="Articles could not be loaded" message="The server did not respond. Please refresh in a moment." />
+          ) : data.items.length === 0 ? (
+            <EmptyState
+              title="No articles here yet"
+              message="Try another category."
+              action={<Link href="/blog" className="btn">Show all articles</Link>}
+            />
+          ) : (
+            <>
+              <p className={styles.count}>
+                Showing {(data.page - 1) * data.limit + 1}–{(data.page - 1) * data.limit + data.items.length} of {data.total} articles
+              </p>
+              <div className={styles.grid}>
+                {data.items.map((p) => (
+                  <BlogCard key={p.id} post={p} />
+                ))}
+              </div>
+              <Pagination page={data.page} pages={data.pages} hrefFor={hrefFor} />
+            </>
           )}
         </div>
       </section>

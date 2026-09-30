@@ -1,0 +1,14 @@
+url: http://localhost:3000
+name: 09_admin_verify_nurse
+tags: [admin, rbac]
+---
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: admin@vitacare.test }
+- assertVisible: ".*Nurses waiting for verification.*"
+- openLink: http://localhost:3000/admin/nurses
+- assertVisible: "Rizwana Kausar.*"
+- tapOn: '\s*Verify\s*'
+- assertNotVisible: "Rizwana Kausar.*"
+- tapOn: '\s*Verified\s*'
+- assertVisible: "Rizwana Kausar.*"

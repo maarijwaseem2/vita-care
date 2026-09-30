@@ -1,0 +1,23 @@
+url: http://localhost:3000
+name: 10_admin_publish_blog
+tags: [admin, blog]
+---
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: admin@vitacare.test }
+- openLink: http://localhost:3000/admin/blog/new
+- tapOn:
+    id: blog-title
+- inputText: "Maestro Post Caring for Elders at Home"
+- tapOn:
+    id: blog-editor
+- inputText: "Simple daily routines help older family members stay safe and comfortable at home."
+- tapOn:
+    id: publishPost
+- extendedWaitUntil:
+    visible: ".*Update article.*"
+    timeout: 8000
+- openLink: http://localhost:3000/blog
+- assertVisible: "Maestro Post Caring for Elders at Home"
+- tapOn: "Maestro Post Caring for Elders at Home"
+- assertVisible: "Simple daily routines help older family members.*"

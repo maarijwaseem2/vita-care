@@ -1,0 +1,21 @@
+url: http://localhost:3000
+name: 08_doctor_sees_vitals_and_orders_nurse
+tags: [doctor, nursing]
+---
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: dr.saif@vitacare.test }
+- assertVisible: "Appointment schedule"
+# Open Ali Hassan's visit (the row, not the hint text)
+- tapOn: "Ali Hassan"
+- extendedWaitUntil:
+    visible: ".*AI pre-visit summary.*"
+    timeout: 10000
+- assertVisible: ".*Home nursing.*"
+- assertVisible: ".*Oxygen saturation 89%.*"
+- tapOn: ".*Order home nursing.*"
+- tapOn:
+    id: hn-notes
+- inputText: "Maestro order: daily dressing for 5 days"
+- tapOn: ".*Order home visit.*"
+- assertVisible: ".*Home visit ordered.*"

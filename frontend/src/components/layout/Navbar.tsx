@@ -1,17 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { homeFor } from '@/lib/roles';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Menu, X, UserCircle, LogOut, Stethoscope } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import styles from './Navbar.module.css';
+import Logo from '@/components/brand/Logo';
 
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/doctors', label: 'Find a Doctor' },
   { href: '/ai-doctor', label: 'AI Doctor' },
+  { href: '/home-care', label: 'Home Nursing' },
   { href: '/blog', label: 'Blog' },
 ];
 
@@ -33,24 +36,21 @@ export default function Navbar() {
   // Close the mobile menu on navigation.
   useEffect(() => setOpen(false), [pathname]);
 
-  const profileHref =
-    user?.role === 'doctor' ? '/profile/doctor' : '/profile/patient';
+  const profileHref = homeFor(user?.role);
 
   const handleLogout = () => {
     logout();
     router.push('/');
   };
 
+  // The admin portal has its own chrome.
+  if (pathname?.startsWith('/admin')) return null;
+
   return (
     <header className={`${styles.header} ${scrolled ? styles.scrolled : ''}`}>
       <div className={`container ${styles.inner}`}>
         <Link href="/" className={styles.brand} aria-label="Vita Care home">
-          <span className={styles.brandMark}>
-            <Stethoscope size={22} />
-          </span>
-          <span className={styles.brandText}>
-            Vita<span>Care</span>
-          </span>
+          <Logo size={34} />
         </Link>
 
         <nav className={`${styles.nav} ${open ? styles.navOpen : ''}`}>

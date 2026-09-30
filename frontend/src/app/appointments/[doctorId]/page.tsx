@@ -1,44 +1,24 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CalendarCheck, Clock, ArrowLeft, Stethoscope } from 'lucide-react';
+import { ArrowLeft, Bot, CalendarCheck, Clock } from 'lucide-react';
+import Avatar from '@/components/ui/Avatar';
 import Loader from '@/components/ui/Loader';
 import EmptyState from '@/components/ui/EmptyState';
-import { appointmentsApi, doctorsApi, getErrorMessage } from '@/lib/api';
+import { appointmentsApi, chatbotApi, doctorsApi, getErrorMessage } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import type { Doctor } from '@/lib/types';
+import { clinicDate, formatDay } from '@/lib/dates';
+import type { Availability, Doctor, TriageSessionView } from '@/lib/types';
 import styles from './booking.module.css';
 
-// Fixed set of bookable slots. In a fuller build these could be derived
-// from each doctor's availableTime range.
-const TIME_SLOTS = [
-  '09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM',
-  '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM',
-  '06:00 PM', '07:00 PM',
-];
+const DAYS_SHOWN = 14;
 
-/** Next 14 selectable calendar days as {value, label}. */
-function nextDays(count = 14) {
-  const days: { value: string; label: string }[] = [];
-  const today = new Date();
-  for (let i = 0; i < count; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    const value = d.toISOString().slice(0, 10);
-    const label = d.toLocaleDateString('en-GB', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-    });
-    days.push({ value, label });
-  }
-  return days;
-}
-
-export default function BookingPage() {
+function BookingForm() {
   const { doctorId } = useParams<{ doctorId: string }>();
+  const search = useSearchParams();
+  const triageToken = search.get('triage') ?? undefined;
   const router = useRouter();
   const { user } = useAuth();
 
@@ -46,39 +26,61 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  const days = useMemo(() => nextDays(), []);
-  const [date, setDate] = useState(days[0].value);
+  // Dates in Pakistan time, starting today.
+  const days = useMemo(() => Array.from({ length: DAYS_SHOWN }, (_, i) => clinicDate(i)), []);
+  const [schedule, setSchedule] = useState<Record<string, Availability>>({});
+  const [date, setDate] = useState('');
   const [slot, setSlot] = useState('');
-  const [bookedSlots, setBookedSlots] = useState<string[]>([]);
+
+  const [triage, setTriage] = useState<TriageSessionView | null>(null);
+  const [shareSummary, setShareSummary] = useState(true);
+
   const [patientName, setPatientName] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Load doctor.
+  const id = Number(doctorId);
+
+  const loadSchedule = async () => {
+    const results = await Promise.all(
+      days.map((d) => appointmentsApi.availability(id, d).catch(() => null)),
+    );
+    const map: Record<string, Availability> = {};
+    results.forEach((r) => r && (map[r.date] = r));
+    setSchedule(map);
+    return map;
+  };
+
   useEffect(() => {
-    doctorsApi
-      .get(Number(doctorId))
-      .then(setDoctor)
+    Promise.all([doctorsApi.get(id), loadSchedule()])
+      .then(([d, map]) => {
+        setDoctor(d);
+        const firstOpen = days.find((day) =>
+          map[day]?.slots.some((s) => s.status === 'available'),
+        );
+        setDate(firstOpen ?? days[0]);
+      })
       .catch((err) => setLoadError(getErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [doctorId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
-  // Prefill patient name from the logged-in account.
   useEffect(() => {
-    if (user?.role === 'patient' && user.name) setPatientName(user.name);
+    if (!triageToken) return;
+    chatbotApi
+      .session(triageToken)
+      .then((t) => {
+        setTriage(t);
+        if (t.summary?.chiefComplaint) setReason((r) => r || t.summary!.chiefComplaint);
+      })
+      .catch(() => setTriage(null));
+  }, [triageToken]);
+
+  useEffect(() => {
+    if (user?.role === 'patient' && user.name) setPatientName((n) => n || user.name);
   }, [user]);
-
-  // Refresh booked slots when the date changes.
-  useEffect(() => {
-    if (!doctorId || !date) return;
-    setSlot('');
-    appointmentsApi
-      .bookedSlots(Number(doctorId), date)
-      .then(setBookedSlots)
-      .catch(() => setBookedSlots([]));
-  }, [doctorId, date]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,27 +92,25 @@ export default function BookingPage() {
     setSubmitting(true);
     try {
       const appointment = await appointmentsApi.book({
-        doctorId: Number(doctorId),
+        doctorId: id,
         patientName,
         patientPhone,
         date,
         timeSlot: slot,
         reason: reason || undefined,
+        triageSessionToken: triage && shareSummary ? triage.token : undefined,
       });
-      router.push(`/receipt/${appointment.id}`);
+      router.push(`/receipt/${appointment.reference}`);
     } catch (err) {
       setError(getErrorMessage(err));
-      // A 409 means someone just took the slot — refresh availability.
-      appointmentsApi
-        .bookedSlots(Number(doctorId), date)
-        .then(setBookedSlots)
-        .catch(() => {});
+      setSlot('');
+      loadSchedule().catch(() => {});
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (loading) return <Loader label="Loading…" />;
+  if (loading) return <Loader label="Loading the doctor's schedule…" />;
   if (loadError || !doctor) {
     return (
       <div className="container" style={{ padding: '60px 20px' }}>
@@ -124,6 +124,8 @@ export default function BookingPage() {
   }
 
   const fullName = `${doctor.title} ${doctor.firstName} ${doctor.lastName}`;
+  const day = schedule[date];
+  const freeCount = day?.slots.filter((s) => s.status === 'available').length ?? 0;
 
   return (
     <div className="container" style={{ padding: '32px 20px 64px' }}>
@@ -132,12 +134,30 @@ export default function BookingPage() {
       </Link>
 
       <div className={styles.layout}>
-        {/* Booking form */}
         <div className={`card card-pad ${styles.formCard}`}>
           <h1 className={styles.title}>Book an appointment</h1>
           <p className="text-muted mb-2">
-            Choose a date and time that works for you.
+            OPD: {doctor.opdSchedule || 'Every day'} · {doctor.availableTime || '10:00 AM – 05:00 PM'}
           </p>
+
+          {triage && (
+            <label className={styles.triage}>
+              <input
+                type="checkbox"
+                checked={shareSummary}
+                onChange={(e) => setShareSummary(e.target.checked)}
+              />
+              <Bot size={20} />
+              <span>
+                <strong>Share my AI Doctor summary with {doctor.title} {doctor.lastName}</strong>
+                <small>
+                  {triage.summary?.chiefComplaint ?? 'Your symptoms'}
+                  {triage.summary?.duration ? ` · ${triage.summary.duration}` : ''}. The doctor
+                  sees it before your visit.
+                </small>
+              </span>
+            </label>
+          )}
 
           {error && <div className="form-error">{error}</div>}
 
@@ -145,41 +165,57 @@ export default function BookingPage() {
             <div className="field">
               <label>Select a date</label>
               <div className={styles.dates}>
-                {days.map((d) => (
-                  <button
-                    type="button"
-                    key={d.value}
-                    className={`${styles.dateChip} ${date === d.value ? styles.dateActive : ''}`}
-                    onClick={() => setDate(d.value)}
-                  >
-                    {d.label}
-                  </button>
-                ))}
+                {days.map((d) => {
+                  const a = schedule[d];
+                  const open = !!a?.slots.some((s) => s.status === 'available');
+                  return (
+                    <button
+                      type="button"
+                      key={d}
+                      disabled={!open}
+                      title={!open ? a?.closedReason ?? 'Fully booked' : undefined}
+                      className={`${styles.dateChip} ${date === d ? styles.dateActive : ''}`}
+                      onClick={() => {
+                        setDate(d);
+                        setSlot('');
+                      }}
+                    >
+                      {formatDay(d)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div className="field">
               <label>
-                <Clock size={15} style={{ verticalAlign: '-2px' }} /> Available
-                time slots
+                <Clock size={15} style={{ verticalAlign: '-2px' }} /> Time slots{' '}
+                <span className="text-muted">({freeCount} free)</span>
               </label>
-              <div className={styles.slots}>
-                {TIME_SLOTS.map((s) => {
-                  const taken = bookedSlots.includes(s);
-                  return (
-                    <button
-                      type="button"
-                      key={s}
-                      disabled={taken}
-                      className={`${styles.slot} ${slot === s ? styles.slotActive : ''} ${taken ? styles.slotTaken : ''}`}
-                      onClick={() => setSlot(s)}
-                    >
-                      {s}
-                      {taken && <span className={styles.slotLabel}>Booked</span>}
-                    </button>
-                  );
-                })}
-              </div>
+              {!day?.opdDay ? (
+                <p className="text-muted">{day?.closedReason ?? 'No OPD on this day.'}</p>
+              ) : (
+                <div className={styles.slots}>
+                  {day.slots.map((s) => {
+                    const disabled = s.status !== 'available';
+                    const firstFree = day.slots.find((x) => x.status === 'available')?.time === s.time;
+                    return (
+                      <button
+                        type="button"
+                        key={s.time}
+                        id={firstFree ? 'firstAvailableSlot' : undefined}
+                        disabled={disabled}
+                        className={`${styles.slot} ${slot === s.time ? styles.slotActive : ''} ${disabled ? styles.slotTaken : ''}`}
+                        onClick={() => setSlot(s.time)}
+                      >
+                        {s.time}
+                        {s.status === 'booked' && <span className={styles.slotLabel}>Booked</span>}
+                        {s.status === 'past' && <span className={styles.slotLabel}>Passed</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div className="field-row">
@@ -192,6 +228,7 @@ export default function BookingPage() {
                   value={patientName}
                   onChange={(e) => setPatientName(e.target.value)}
                   required
+                  maxLength={120}
                 />
               </div>
               <div className="field">
@@ -202,20 +239,24 @@ export default function BookingPage() {
                   className="input"
                   value={patientPhone}
                   onChange={(e) => setPatientPhone(e.target.value)}
-                  placeholder="+92 3.."
+                  placeholder="03xx xxxxxxx"
+                  inputMode="tel"
                   required
                 />
               </div>
             </div>
 
             <div className="field">
-              <label htmlFor="reason">Reason for visit <span className="text-muted">(optional)</span></label>
+              <label htmlFor="reason">
+                Reason for visit <span className="text-muted">(optional)</span>
+              </label>
               <textarea
                 id="reason"
                 name="reason"
                 className="textarea"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
+                maxLength={1000}
                 placeholder="Briefly describe your symptoms or concern"
               />
             </div>
@@ -224,7 +265,9 @@ export default function BookingPage() {
               {submitting ? (
                 <span className="spinner" />
               ) : (
-                <><CalendarCheck size={18} /> Confirm appointment</>
+                <>
+                  <CalendarCheck size={18} /> Confirm appointment
+                </>
               )}
             </button>
 
@@ -234,41 +277,34 @@ export default function BookingPage() {
                 <Link href="/login" style={{ color: 'var(--secondary)', fontWeight: 600 }}>
                   Sign in
                 </Link>{' '}
-                to save it to your account.
+                to save it to your account and medical record.
               </p>
             )}
           </form>
         </div>
 
-        {/* Doctor summary */}
         <aside className={`card card-pad ${styles.summary}`}>
           <div className={styles.docRow}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={doctor.imageUrl || '/images/doctors/leo-mario.png'}
-              alt={fullName}
-            />
+            <Avatar name={fullName} src={doctor.imageUrl} size={64} />
             <div>
               <h3>{fullName}</h3>
-              <span className="badge badge-cyan">
-                <Stethoscope size={12} /> {doctor.specialty}
-              </span>
+              <span className="badge badge-cyan">{doctor.specialty}</span>
             </div>
           </div>
           <div className={styles.summaryRow}>
             <span>Date</span>
-            <strong>
-              {new Date(date).toLocaleDateString('en-GB', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-              })}
-            </strong>
+            <strong>{date ? formatDay(date, { weekday: 'long', day: 'numeric', month: 'long' }) : '—'}</strong>
           </div>
           <div className={styles.summaryRow}>
             <span>Time</span>
             <strong>{slot || '—'}</strong>
           </div>
+          {doctor.address && (
+            <div className={styles.summaryRow}>
+              <span>Clinic</span>
+              <strong>{doctor.address}</strong>
+            </div>
+          )}
           <div className={styles.summaryRow}>
             <span>Consultation fee</span>
             <strong>Rs {Number(doctor.fees).toLocaleString()}</strong>
@@ -276,5 +312,13 @@ export default function BookingPage() {
         </aside>
       </div>
     </div>
+  );
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={<Loader label="Loading…" />}>
+      <BookingForm />
+    </Suspense>
   );
 }

@@ -6,7 +6,7 @@ Vita Care is tested at three levels. The first two run automatically and are
 | Level | Tool | Location | Runs where |
 |-------|------|----------|------------|
 | Unit | Jest | `backend/src/**/*.spec.ts` | Anywhere (no DB) |
-| End‑to‑end (API) | Jest + Supertest | `backend/test/app.e2e-spec.ts` | Needs MySQL |
+| End‑to‑end (API) | Jest + Supertest | `backend/test/app.e2e-spec.ts` | Needs PostgreSQL |
 | UI end‑to‑end | Maestro | `frontend/.maestro/*.yaml` | Your machine (browser) |
 
 The detailed case‑by‑case record is in [TEST-CASES.md](./TEST-CASES.md).
@@ -31,14 +31,14 @@ Tests:       15 passed, 15 total
 
 ---
 
-## 2. End‑to‑end API tests (against MySQL)
+## 2. End‑to‑end API tests (against PostgreSQL)
 
 These boot the real NestJS app (same pipes, prefix and error filter as
 production) and hit every endpoint with real HTTP requests.
 
 **Prerequisites**
 
-1. MySQL running and the `vita_care` database created.
+1. PostgreSQL running and the `vita_care` database migrated and seeded (`npm run migration:run && npm run seed`). The suite deletes the bookings and accounts it creates.
 2. `backend/.env` filled in (DB credentials).
 3. Schema + demo data loaded once:
    ```bash
@@ -58,7 +58,7 @@ Expected:
 
 ```
 Test Suites: 1 passed, 1 total
-Tests:       35 passed, 35 total
+Tests:       68 passed, 68 total
 ```
 
 The suite is **idempotent** — every account uses a random email and every
@@ -81,29 +81,53 @@ cleaning the database.
 
 ## 3. UI end‑to‑end tests (Maestro)
 
-Maestro flows drive the running website in a real browser and check the main
-user journeys (home/navigation, find a doctor, guest booking → receipt, AI
-Doctor, patient login).
+Ten Maestro web flows drive the real website in Chrome, covering every role:
 
-Because Maestro needs a real browser, run these on your own machine with the app
-running. Full instructions (install Maestro, start the app, run the flows) are
-in [`frontend/.maestro/README.md`](../frontend/.maestro/README.md).
+| Flow | Role | Checks |
+| --- | --- | --- |
+| 01_public_home_navigation | Guest | Home, doctors, home nursing, blog pagination |
+| 02_public_find_doctor | Guest | Search "Saif", open profile, book button |
+| 03_guest_book_appointment | Guest | First free OPD slot, booking, `VC-` reference |
+| 04_ai_doctor_safety | Guest | "chest pain nahi hai" gives no banner; "seenay mein dard" shows 1122 |
+| 05_rbac_redirects | Patient, nurse, admin | Each role is sent back to its own dashboard |
+| 06_patient_request_home_nurse | Patient | Request an injection visit, `HN-` reference |
+| 07_nurse_accept_and_record_vitals | Nurse | Sees the request; records SpO₂ 89 → "Dangerous reading" |
+| 08_doctor_sees_vitals_and_orders_nurse | Doctor | Sees the alert in the visit panel; orders home nursing |
+| 09_admin_verify_nurse | Admin | Verifies the pending nurse |
+| 10_admin_publish_blog | Admin | Writes and publishes a post, opens it on the blog |
 
-Quick version:
+### Run them
 
 ```bash
-# 1) start backend (:4000, seeded) and frontend (:3000) in two terminals
-# 2) install Maestro:  curl -Ls "https://get.maestro.mobile.dev" | bash
-# 3) run the flows:
+# 1) App running: backend on :4000, frontend on :3000 (production build recommended)
+cd backend && npm run demo:reset          # fresh demo data before every run
+
+# 2) Maestro (needs Java 17+ and Google Chrome)
+curl -Ls "https://get.maestro.mobile.dev" | bash
+
+# 3) Run all flows, in order, headless with a tall window
 cd frontend
-maestro test .maestro/
+maestro test --headless --screen-size 1440x2400 .maestro
 ```
 
----
+Notes from setting this up:
+
+- Use a **tall screen size**. Maestro web does not scroll to find elements, and the default headless window is 1024×625.
+- On Linux as **root** (Docker, CI), Chrome needs `--no-sandbox`. Point `/usr/bin/google-chrome` to a small wrapper
+  script that adds `--no-sandbox --disable-dev-shm-usage` before the real Chrome binary.
+- Run **one** Maestro process at a time; two runs sharing the browser fail randomly.
+- Buttons with an icon expose their text with a leading space, so flows match them with `.*text.*`.
+- The shared login subflow opens `/login?logout=1` first, so each flow starts signed out.
+
+## 4. Browser checks used during development
+
+Alongside Maestro, the same journeys were run with Playwright on 30 Sep 2026:
+27/27 role checks passed (patient, nurse, doctor, admin, RBAC redirects, blog banner
+in list and detail, Open Graph image), and 25 pages × 2 sizes (390 px phone, 768 px tablet)
+showed no horizontal overflow.
 
 ## Summary
 
-- ✅ **50 automated tests pass** (15 unit + 35 API e2e).
-- ✅ **5 Maestro flows** cover the core UI journeys end to end.
-- ✅ **22 manual test cases** documented in `TEST-CASES.md`, mapped to the
-  automated coverage above.
+- ✅ **111 unit tests** and **91 API e2e tests** pass (includes a 13-case RBAC matrix).
+- ✅ **110-case triage evaluation**: 36/36 emergencies caught by the safety guard, 14/14 trap cases correct.
+- ✅ **10 Maestro flows** covering every role (results in `docs/WORK-SUMMARY.md`).

@@ -1,0 +1,28 @@
+url: http://localhost:3000
+name: 07_nurse_accept_and_record_vitals
+tags: [nurse, nursing, safety]
+---
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: nurse@vitacare.test }
+- assertVisible: "Nurse dashboard"
+- assertVisible: ".*Verified.*"
+# The request from flow 06 is visible to this Karachi nurse
+- assertVisible: "Maestro visit: Inj. B12 first dose"
+- tapOn: "My visits.*"
+# Today's accepted post-op visit: record a dangerous SpO2
+- assertVisible: "Post-surgery care"
+- tapOn: ".*Record visit & vitals.*"
+- tapOn:
+    id: spo2
+- inputText: "89"
+- tapOn:
+    id: pulse
+- inputText: "104"
+- tapOn:
+    id: vnotes
+- inputText: "Maestro: wound clean, breathless on walking"
+- tapOn: ".*Save & complete visit.*"
+- assertVisible: ".*Dangerous reading.*"
+- assertVisible: "Oxygen saturation 89%.*"
+- tapOn: "Done"

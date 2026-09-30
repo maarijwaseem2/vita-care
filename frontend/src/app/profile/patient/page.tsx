@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { homeFor } from '@/lib/roles';
+import PatientHomeVisits from '@/components/homecare/PatientHomeVisits';
 import {
   User,
   Pencil,
@@ -13,7 +15,9 @@ import {
   CalendarClock,
   LogOut,
   Stethoscope,
+  Sparkles,
 } from 'lucide-react';
+import { formatDay } from '@/lib/dates';
 import Loader from '@/components/ui/Loader';
 import { patientsApi, appointmentsApi, getErrorMessage } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -32,6 +36,20 @@ export default function PatientDashboard() {
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [appts, setAppts] = useState<Appointment[]>([]);
+  const [cancelling, setCancelling] = useState<number | null>(null);
+
+  const cancel = async (a: Appointment) => {
+    if (!window.confirm(`Cancel your appointment on ${formatDay(a.date)} at ${a.timeSlot}?`)) return;
+    setCancelling(a.id);
+    try {
+      const updated = await appointmentsApi.setStatus(a.id, 'cancelled');
+      setAppts((list) => list.map((x) => (x.id === a.id ? { ...x, status: updated.status } : x)));
+    } catch (err) {
+      window.alert(getErrorMessage(err));
+    } finally {
+      setCancelling(null);
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -49,7 +67,7 @@ export default function PatientDashboard() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) router.replace('/login?redirect=/profile/patient');
-    else if (user.role !== 'patient') router.replace('/profile/doctor');
+    else if (user.role !== 'patient') router.replace(homeFor(user.role));
   }, [user, authLoading, router]);
 
   const load = () => {
@@ -244,7 +262,7 @@ export default function PatientDashboard() {
                       {h.notes && <p>{h.notes}</p>}
                       {h.diagnosedAt && (
                         <div className={styles.histDate}>
-                          Diagnosed {new Date(h.diagnosedAt).toLocaleDateString('en-GB')}
+                          Diagnosed {formatDay(h.diagnosedAt, { day: 'numeric', month: 'short', year: 'numeric' })}
                         </div>
                       )}
                     </div>
@@ -304,20 +322,34 @@ export default function PatientDashboard() {
                         {a.doctor?.specialty}
                         {a.doctor?.city ? ` · ${a.doctor.city}` : ''}
                       </p>
+                      {a.aiSummaryShared && (
+                        <span className={styles.aiTag}>
+                          <Sparkles size={12} /> AI summary shared with doctor
+                        </span>
+                      )}
                     </div>
                     <div className={styles.apptWhen}>
                       <strong>
-                        {new Date(a.date).toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                        })}
+                        {formatDay(a.date, { day: 'numeric', month: 'short' })}
                       </strong>
                       <span>{a.timeSlot}</span>
                     </div>
                     <span className={`badge ${STATUS_CLASS[a.status]}`}>{a.status}</span>
-                    <Link href={`/receipt/${a.id}`} className="btn btn-ghost btn-sm">
-                      Receipt
-                    </Link>
+                    <div className={styles.apptActions}>
+                      <Link href={`/receipt/${a.reference}`} className="btn btn-ghost btn-sm">
+                        Receipt
+                      </Link>
+                      {a.status === 'booked' && (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          disabled={cancelling === a.id}
+                          onClick={() => cancel(a)}
+                        >
+                          {cancelling === a.id ? <span className="spinner" /> : 'Cancel'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -329,6 +361,7 @@ export default function PatientDashboard() {
               </div>
             )}
           </div>
+          <PatientHomeVisits />
         </div>
       </div>
     </div>

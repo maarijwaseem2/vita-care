@@ -1,0 +1,23 @@
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 22px; margin-top: 22px; }
+.head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.head h2 { display: flex; align-items: center; gap: 8px; font-size: 1.2rem; }
+.empty { color: var(--muted); }
+.list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+@media (max-width: 420px) { .list { grid-template-columns: 1fr; } }
+.item { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.itemRed { border-color: #f0b4b4; box-shadow: inset 4px 0 0 #c62828; }
+.itemAmber { border-color: #f2d49b; box-shadow: inset 4px 0 0 #e0a100; }
+.top { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
+.status { font-size: .74rem; font-weight: 700; padding: 3px 9px; border-radius: var(--radius-pill); background: var(--surface-3); color: var(--muted); }
+.s_requested { background: #fff4df; color: #8a5a00; }
+.s_accepted { background: var(--primary-soft); color: var(--navy); }
+.s_completed { background: #e5f5e9; color: #1d7a34; }
+.meta { color: var(--body); font-size: .86rem; display: flex; gap: 5px; align-items: center; flex-wrap: wrap; overflow-wrap: anywhere; }
+.meta a { color: var(--blue); font-weight: 600; display: inline-flex; gap: 3px; align-items: center; }
+.vitals { font-size: .86rem; display: flex; flex-direction: column; gap: 3px; background: var(--surface-2); padding: 8px 10px; border-radius: var(--radius-sm); }
+.vitals p { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.alertRed { color: #a42020; font-weight: 600; }
+.alertAmber { color: #8a5a00; font-weight: 600; }
+.note { color: var(--muted); }
+.red { display: flex; gap: 10px; align-items: flex-start; background: #fdecec; color: #a42020; padding: 12px 14px; border-radius: var(--radius); margin-bottom: 12px; font-weight: 500; }
+.red a { color: #a42020; font-weight: 800; }

@@ -1,0 +1,15 @@
+# Shared: sign out any previous session, then sign in as ${EMAIL}.
+url: http://localhost:3000
+---
+- openLink: http://localhost:3000/login?logout=1
+- tapOn:
+    id: email
+- inputText: ${EMAIL}
+- tapOn:
+    id: password
+- inputText: Password123
+- tapOn:
+    id: loginSubmit
+# wait for the redirect to the role dashboard
+- waitForAnimationToEnd:
+    timeout: 4000

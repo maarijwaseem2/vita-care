@@ -151,3 +151,16 @@
   .apptItem { flex-wrap: wrap; }
   .apptWhen { text-align: left; }
 }
+
+/* Doctor schedule rows open the visit panel */
+.apptButton { width: 100%; text-align: start; font: inherit; color: inherit; cursor: pointer; background: var(--surface); }
+.apptButton:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.hintLine { color: var(--muted); font-size: 0.88rem; margin: -6px 0 12px; }
+.aiTag { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; font-size: 0.74rem; font-weight: 700; color: var(--blue); background: #e7f6fa; padding: 2px 9px; border-radius: var(--radius-pill); }
+.aiTagRed { color: #a42020; background: #fdecec; }
+.apptActions { display: flex; gap: 4px; flex-shrink: 0; }
+@media (max-width: 640px) { .apptItem { flex-wrap: wrap; } }
+
+.verifyBanner { padding: 14px 16px; border-radius: 12px; margin-bottom: 18px; font-size: .92rem; line-height: 1.55; }
+.verifyBanner[data-status='pending'] { background: #fff4df; color: #6b4600; }
+.verifyBanner[data-status='rejected'] { background: #fdecec; color: #8a1c1c; }

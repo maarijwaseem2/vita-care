@@ -1,135 +1,472 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { ChatDto } from './dto/chat.dto';
-import { DoctorsService } from '../doctors/doctors.service';
-import { Specialty } from '../../common/enums';
-import { Doctor } from '../doctors/entities/doctor.entity';
 import {
-  AiStructuredReply,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
+import { ChatDto, ReportDto } from './dto/chat.dto';
+import { DoctorsService } from '../doctors/doctors.service';
+import { PatientsService } from '../patients/patients.service';
+import { Doctor } from '../doctors/entities/doctor.entity';
+import { Patient } from '../patients/entities/patient.entity';
+import { Specialty, UserRole } from '../../common/enums';
+import type { AuthUser } from '../../common/decorators/current-user.decorator';
+import { TriageSession } from './entities/triage-session.entity';
+import { AiClient, AiUnavailableError } from './ai-client';
+import {
+  AiConsultReply,
+  PossibleCondition,
+  ClinicalSummary,
+  extractJson,
   mapSpecialty,
-  parseStructuredReply,
+  parseConsultReply,
 } from './chatbot.helpers';
+import { ChatLanguage, detectLanguage } from './language';
+import { knowledgeForPrompt, retrieveKnowledge } from './knowledge';
+import {
+  EmergencyInfo,
+  RedFlag,
+  Urgency,
+  analyseRedFlags,
+  emergencyInfo,
+  maxUrgency,
+  urgencyFromFlags,
+} from './safety';
+import { offlineConsult } from './offline-triage';
+import { consultSystemPrompt, reportSystemPrompt, safetyCheckPrompt } from './prompts';
 
 export interface ConsultResult {
+  sessionToken: string;
+  mode: 'ai' | 'offline';
+  provider: string;
+  language: ChatLanguage;
   reply: string;
-  urgency: 'routine' | 'soon' | 'emergency';
+  stage: 'interviewing' | 'assessment';
+  quickReplies: string[];
+  urgency: Urgency;
   recommendedSpecialty: Specialty | null;
   recommendedDoctors: Doctor[];
+  possibleConditions: PossibleCondition[];
+  selfCare: string[];
+  redFlagsToWatch: string[];
+  redFlags: RedFlag[];
+  emergency: EmergencyInfo | null;
+  summary: ClinicalSummary | null;
+  usedMedicalRecord: boolean;
   disclaimer: string;
 }
 
+export interface ReportFinding {
+  name: string;
+  value: string;
+  referenceRange: string;
+  status: 'low' | 'normal' | 'high' | 'unclear';
+  explanation: string;
+}
+
+export interface ReportResult {
+  readable: boolean;
+  documentType: string;
+  summary: string;
+  findings: ReportFinding[];
+  recommendedSpecialty: Specialty | null;
+  recommendedDoctors: Doctor[];
+  urgency: Urgency;
+  possibleConditions: PossibleCondition[];
+  questionsForDoctor: string[];
+  /** Attach this report to a booking so the doctor sees it. */
+  sessionToken: string | null;
+  disclaimer: string;
+}
+
+const DISCLAIMER =
+  'Preliminary AI guidance, not a medical diagnosis. A licensed doctor must confirm. ' +
+  'In an emergency call 1122.';
+
 /**
- * The "AI Doctor". Sends the patient's described symptoms to an
- * OpenAI-compatible chat model, then maps the model's suggested department to
- * real doctors stored in our database so the patient can book a follow-up.
+ * The AI Doctor.
  *
- * IMPORTANT: this provides *preliminary guidance only* and is not a diagnosis.
- * That boundary is enforced in the system prompt and surfaced to the user.
+ * Pipeline for every patient turn:
+ *   1. Deterministic red-flag guard scans the patient's words (en / ur / roman-ur).
+ *   2. Patient record (age, conditions, medicines) is loaded from the DB.
+ *   3. Qwen interviews / assesses, returning strict JSON.
+ *      If the model is unavailable, a rule-based interviewer takes over (mode "offline").
+ *   4. Final urgency = max(model, guard) — the guard can only escalate.
+ *   5. Real doctors in that department are recommended, patient's city first.
+ *   6. The session is saved so it can be attached to a booking for the doctor.
  */
 @Injectable()
 export class ChatbotService {
   private readonly logger = new Logger(ChatbotService.name);
 
-  private static readonly DISCLAIMER =
-    'This is preliminary AI guidance, not a medical diagnosis. For anything ' +
-    'urgent or worsening, contact a licensed doctor or emergency services.';
-
   constructor(
-    private readonly configService: ConfigService,
+    private readonly ai: AiClient,
     private readonly doctorsService: DoctorsService,
+    private readonly patientsService: PatientsService,
+    @InjectRepository(TriageSession)
+    private readonly sessions: Repository<TriageSession>,
   ) {}
 
-  async consult(dto: ChatDto): Promise<ConsultResult> {
-    const structured = await this.askModel(dto);
+  async consult(dto: ChatDto, user?: AuthUser | null): Promise<ConsultResult> {
+    const userText = dto.messages.filter((m) => m.role === 'user').map((m) => m.content);
+    // Detect from the whole conversation: short answers like "2 din" or
+    // "Moderate" should not flip the language mid-consultation.
+    const language: ChatLanguage = dto.language ?? detectLanguage(userText.join(' '));
 
-    const specialty = mapSpecialty(structured.recommendedSpecialty);
-    const recommendedDoctors = specialty
-      ? await this.doctorsService.findBySpecialty(specialty, 3)
-      : [];
+    // 1. Safety guard over everything the patient has said (negation / history aware).
+    const allText = userText.join('\n');
+    const analysed = analyseRedFlags(allText);
+    const redFlags: RedFlag[] = analysed
+      .filter((f) => f.status === 'active')
+      .map(({ id, label, urgency }) => ({ id, label, urgency }));
+    const contextNotes = analysed
+      .filter((f) => f.status !== 'active')
+      .map((f) => `${f.label} (${f.status === 'negated' ? 'denied' : f.status === 'informational' ? 'asked about, not reported' : 'past history'})`);
+
+    // 2. Medical record context (server-side, never trusted from the client).
+    const patient = await this.loadPatient(user);
+    const profile = patient ? this.describePatient(patient) : null;
+
+    // 3. Model (with retrieved guidance) + an independent emergency check, in parallel.
+    //    If the model is unavailable, a rule-based interviewer takes over.
+    const knowledge = knowledgeForPrompt(retrieveKnowledge(allText));
+    let mode: 'ai' | 'offline' = 'ai';
+    let reply: AiConsultReply;
+    const hasActiveEmergency = redFlags.some((f) => f.urgency === 'emergency');
+    const [main, second] = await Promise.allSettled([
+      this.ai.complete(
+        [
+          {
+            role: 'system',
+            content: consultSystemPrompt({
+              language,
+              patientProfile: profile,
+              redFlagLabels: redFlags.filter((f) => f.urgency === 'emergency').map((f) => f.label),
+              knowledge,
+              contextNotes,
+            }),
+          },
+          ...dto.messages.map((m) => ({ role: m.role, content: m.content })),
+        ],
+        { json: true },
+      ),
+      hasActiveEmergency ? Promise.resolve(null) : this.safetySecondOpinion(userText),
+    ]);
+    if (main.status === 'fulfilled') {
+      reply = parseConsultReply(main.value);
+    } else {
+      if (!(main.reason instanceof AiUnavailableError)) throw main.reason;
+      mode = 'offline';
+      reply = offlineConsult(dto.messages, language);
+    }
+    if (second.status === 'fulfilled' && second.value) {
+      redFlags.push({ id: 'ai_safety_check', label: `AI safety check: ${second.value}`, urgency: 'emergency' });
+    }
+    const guardUrgency = urgencyFromFlags(redFlags);
+    if (reply.summary) {
+      reply.summary = {
+        ...reply.summary,
+        clinicalReasoning: reply.clinicalReasoning || undefined,
+        contextNotes: contextNotes.length ? contextNotes : undefined,
+      };
+    }
+
+    // 4. The guard can only escalate.
+    const urgency = maxUrgency(reply.urgency, guardUrgency);
+    const isEmergency = urgency === 'emergency';
+    const stage = isEmergency ? 'assessment' : reply.stage;
+    // If the guard overruled the model (or no model ran), the model's calmer
+    // wording must not be shown next to an emergency banner.
+    const guardOverruled = isEmergency && reply.urgency !== 'emergency';
+    let replyText = reply.reply;
+    if (isEmergency && (mode === 'offline' || guardOverruled)) {
+      replyText = emergencyInfo(redFlags, language).headline;
+    }
+    if (guardOverruled) {
+      reply.possibleConditions = [];
+      reply.selfCare = [];
+    }
+
+    // 5. Doctors in the right department, patient's city first.
+    const specialty = mapSpecialty(reply.recommendedSpecialty);
+    const recommendedDoctors =
+      specialty && stage === 'assessment'
+        ? await this.doctorsService.findBySpecialty(specialty, 3, patient?.city)
+        : [];
+
+    // 6. Persist.
+    const session = await this.saveSession(dto, {
+      patientId: patient?.id ?? null,
+      language,
+      mode,
+      urgency,
+      specialty,
+      summary: reply.summary,
+      possibleConditions: reply.possibleConditions,
+      redFlags,
+      assistantReply: replyText,
+    });
 
     return {
-      reply: structured.reply,
-      urgency: structured.urgency,
+      sessionToken: session.token,
+      mode,
+      provider: mode === 'ai' ? this.ai.providerLabel : 'Offline rules',
+      language,
+      reply: replyText,
+      stage,
+      quickReplies: isEmergency ? [] : reply.quickReplies,
+      urgency,
       recommendedSpecialty: specialty,
       recommendedDoctors,
-      disclaimer: ChatbotService.DISCLAIMER,
+      possibleConditions: reply.possibleConditions,
+      selfCare: reply.selfCare,
+      redFlagsToWatch: reply.redFlagsToWatch,
+      redFlags,
+      emergency: isEmergency ? emergencyInfo(redFlags, language) : null,
+      summary: reply.summary,
+      usedMedicalRecord: !!profile,
+      disclaimer: DISCLAIMER,
     };
   }
 
-  // --- LLM call ---
-
-  private async askModel(dto: ChatDto): Promise<AiStructuredReply> {
-    const apiKey = this.configService.get<string>('AI_API_KEY');
-    const baseUrl =
-      this.configService.get<string>('AI_BASE_URL') ??
-      'https://api.openai.com/v1';
-    const model =
-      this.configService.get<string>('AI_MODEL') ?? 'gpt-4o-mini';
-
-    if (!apiKey || apiKey.includes('your-api-key')) {
-      // Fail loudly but cleanly so the frontend can show a helpful message.
-      throw new ServiceUnavailableException(
-        'AI Doctor is not configured. Set AI_API_KEY in the backend .env file.',
-      );
-    }
-
-    const messages = [
-      { role: 'system', content: this.buildSystemPrompt(dto.patientContext) },
-      ...dto.messages.map((m) => ({ role: m.role, content: m.content })),
-    ];
-
+  /** Explain a photo of a lab report or prescription (Qwen-VL). */
+  async explainReport(dto: ReportDto, user?: AuthUser | null): Promise<ReportResult> {
+    const language: ChatLanguage = dto.language ?? 'en';
+    const patient = await this.loadPatient(user);
+    let raw: string;
     try {
-      const response = await fetch(`${baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          temperature: 0.3,
-          response_format: { type: 'json_object' },
-        }),
-      });
-
-      if (!response.ok) {
-        const body = await response.text();
-        this.logger.error(`AI provider error ${response.status}: ${body}`);
+      raw = await this.ai.complete(
+        [
+          { role: 'system', content: reportSystemPrompt(language) },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: `data:${dto.mimeType};base64,${dto.imageBase64.replace(/\s/g, '')}` },
+              },
+              {
+                type: 'text',
+                text: patient
+                  ? `Patient context: ${this.describePatient(patient)}\nExplain this document.`
+                  : 'Explain this document.',
+              },
+            ],
+          },
+        ],
+        { model: this.ai.visionModel, json: true, timeoutMs: 60_000 },
+      );
+    } catch (err) {
+      if (err instanceof AiUnavailableError) {
         throw new ServiceUnavailableException(
-          'The AI Doctor is temporarily unavailable. Please try again.',
+          err.reason === 'not_configured'
+            ? 'Report reading needs the AI to be switched on (set AI_API_KEY on the server).'
+            : 'The report reader is temporarily unavailable. Please try again.',
         );
       }
+      throw err;
+    }
 
-      const data: any = await response.json();
-      const content: string = data?.choices?.[0]?.message?.content ?? '';
-      return parseStructuredReply(content);
-    } catch (error) {
-      if (error instanceof ServiceUnavailableException) throw error;
-      this.logger.error('Failed to reach AI provider', error as Error);
-      throw new ServiceUnavailableException(
-        'The AI Doctor could not be reached. Please try again later.',
+    const p = extractJson(raw) ?? {};
+    const statuses = ['low', 'normal', 'high', 'unclear'];
+    const s = (v: unknown, max = 400) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+    const findings: ReportFinding[] = Array.isArray(p.findings)
+      ? (p.findings as any[])
+          .map((f) => ({
+            name: s(f?.name, 120),
+            value: s(f?.value, 60),
+            referenceRange: s(f?.referenceRange, 60),
+            status: statuses.includes(f?.status) ? f.status : 'unclear',
+            explanation: s(f?.explanation, 300),
+          }))
+          .filter((f) => f.name)
+          .slice(0, 40)
+      : [];
+    const specialty = mapSpecialty(typeof p.recommendedSpecialty === 'string' ? p.recommendedSpecialty : null);
+    const urgency: Urgency = ['routine', 'soon', 'emergency'].includes(p.urgency as string)
+      ? (p.urgency as Urgency)
+      : 'routine';
+    const possibleConditions = parseConsultReply(JSON.stringify({ reply: 'x', possibleConditions: p.possibleConditions })).possibleConditions;
+    const readable = p.readable !== false;
+    const summaryText = s(p.summary, 1500) || raw.slice(0, 1500);
+
+    // Save as a consultation (source "report") so it can be attached to a booking.
+    let sessionToken: string | null = null;
+    if (readable && findings.length) {
+      const abnormal = findings.filter((f) => f.status === 'low' || f.status === 'high');
+      const session = await this.sessions
+        .save(
+          this.sessions.create({
+            token: randomUUID(),
+            patientId: patient?.id ?? null,
+            language,
+            mode: 'ai',
+            source: 'report',
+            urgency,
+            specialty,
+            possibleConditions,
+            redFlags: [],
+            summary: {
+              chiefComplaint: `Uploaded ${s(p.documentType, 40) || 'lab report'} for explanation`,
+              duration: '',
+              severity: '',
+              associatedSymptoms: [],
+              relevantHistory: abnormal.length
+                ? `Abnormal: ${abnormal.map((f) => `${f.name} ${f.value} (${f.status}, ref ${f.referenceRange || 'n/a'})`).join('; ')}`
+                : 'All readable values within the printed reference ranges.',
+              questionsForDoctor: [],
+              clinicalReasoning: summaryText.slice(0, 800),
+            } as unknown as Record<string, unknown>,
+            transcript: [{ role: 'assistant', content: summaryText }],
+          }),
+        )
+        .catch(() => null);
+      sessionToken = session?.token ?? null;
+    }
+
+    return {
+      readable,
+      documentType: s(p.documentType, 40) || 'other',
+      summary: summaryText,
+      findings,
+      recommendedSpecialty: specialty,
+      recommendedDoctors: specialty
+        ? await this.doctorsService.findBySpecialty(specialty, 3, patient?.city)
+        : [],
+      urgency,
+      possibleConditions,
+      sessionToken,
+      questionsForDoctor: Array.isArray(p.questionsForDoctor)
+        ? (p.questionsForDoctor as unknown[]).map((q) => s(q, 250)).filter(Boolean).slice(0, 5)
+        : [],
+      disclaimer: DISCLAIMER,
+    };
+  }
+
+  /** Public view of a session by its token (used by the booking page). */
+  /**
+   * A guest's session is readable with its (unguessable) token alone.
+   * A signed-in patient's session is readable only by that patient.
+   */
+  async getSessionByToken(token: string, user?: AuthUser | null) {
+    const session = await this.sessions.findOne({ where: { token } });
+    if (!session) throw new NotFoundException('Consultation not found');
+    if (session.patientId) {
+      const me = await this.loadPatient(user);
+      if (me?.id !== session.patientId) throw new NotFoundException('Consultation not found');
+    }
+    return this.publicSession(session);
+  }
+
+  /** Resolve a token to a session id, for linking to a booking. */
+  async resolveToken(token?: string | null): Promise<number | null> {
+    if (!token) return null;
+    const session = await this.sessions.findOne({ where: { token }, select: { id: true } });
+    return session?.id ?? null;
+  }
+
+  publicSession(s: TriageSession) {
+    return {
+      token: s.token,
+      language: s.language,
+      mode: s.mode,
+      source: s.source,
+      urgency: s.urgency,
+      specialty: s.specialty,
+      summary: s.summary,
+      possibleConditions: s.possibleConditions ?? [],
+      redFlags: s.redFlags ?? [],
+      createdAt: s.createdAt,
+    };
+  }
+
+  // --- helpers ---
+
+  /**
+   * Narrow, independent "is this an emergency?" question to the model.
+   * Returns a reason when it says yes; null otherwise or on any failure
+   * (it can only ever add urgency, never block the main answer).
+   */
+  private async safetySecondOpinion(userText: string[]): Promise<string | null> {
+    if (!this.ai.configured) return null;
+    try {
+      const raw = await this.ai.complete(
+        [
+          { role: 'system', content: safetyCheckPrompt() },
+          { role: 'user', content: userText.slice(-6).join('\n---\n') },
+        ],
+        { json: true, temperature: 0, timeoutMs: 12_000 },
       );
+      const p = extractJson(raw);
+      return p?.emergency === true ? String(p.reason ?? 'possible emergency').slice(0, 120) : null;
+    } catch {
+      return null;
     }
   }
 
-  private buildSystemPrompt(patientContext?: string): string {
-    const specialties = Object.values(Specialty).join(', ');
-    const context = patientContext
-      ? `\n\nKnown patient context: ${patientContext}`
-      : '';
+  private async loadPatient(user?: AuthUser | null): Promise<Patient | null> {
+    if (!user || user.role !== UserRole.PATIENT) return null;
+    return this.patientsService.findByUserId(user.userId).catch(() => null);
+  }
 
+  private describePatient(p: Patient): string {
+    const parts = [
+      p.age ? `Age ${p.age}` : null,
+      p.gender ? `gender ${p.gender}` : null,
+      p.city ? `lives in ${p.city}` : null,
+    ].filter(Boolean);
+    const history = (p.medicalHistory ?? [])
+      .map((h) => `${h.condition}${h.diagnosedAt ? ` (since ${h.diagnosedAt.slice(0, 4)})` : ''}${h.notes ? ` – ${h.notes}` : ''}`)
+      .join('; ');
     return [
-      'You are "AI Doctor", a careful medical triage assistant for the Vita Care platform.',
-      'Your job is to gather a patient\'s symptoms, give a clear PRELIMINARY, non-diagnostic assessment, suggest safe self-care where appropriate, and recommend which medical department they should see.',
-      'You must NOT provide a definitive diagnosis, prescribe specific medications or doses, or replace a real physician.',
-      'If symptoms suggest a medical emergency (e.g. chest pain, difficulty breathing, stroke signs, severe bleeding), set urgency to "emergency" and tell the patient to seek emergency care immediately.',
-      `Recommend exactly one department from this list when a referral is useful: ${specialties}. If none clearly fits, use "General Physician". If more information is still needed, you may set recommendedSpecialty to null and ask a follow-up question.`,
-      'Keep replies concise, warm and easy to understand for a non-medical person.',
-      'Respond ONLY with a valid JSON object in exactly this shape:',
-      '{"reply": string, "recommendedSpecialty": string | null, "urgency": "routine" | "soon" | "emergency"}',
-      context,
+      parts.join(', ') || 'Basic details not provided',
+      `Known conditions: ${history || 'none recorded'}`,
+      `Current medicines: ${p.currentMedication || 'none recorded'}`,
     ].join('\n');
   }
 
+  private async saveSession(
+    dto: ChatDto,
+    data: {
+      patientId: number | null;
+      language: ChatLanguage;
+      mode: 'ai' | 'offline';
+      urgency: Urgency;
+      specialty: Specialty | null;
+      summary: ClinicalSummary | null;
+      possibleConditions: PossibleCondition[];
+      redFlags: RedFlag[];
+      assistantReply: string;
+    },
+  ): Promise<TriageSession> {
+    let session = dto.sessionToken
+      ? await this.sessions.findOne({ where: { token: dto.sessionToken } })
+      : null;
+    // A token for someone else's record is treated as a new session.
+    if (session && session.patientId && session.patientId !== data.patientId) session = null;
+    if (!session) session = this.sessions.create({ token: randomUUID() });
+
+    session.patientId = data.patientId ?? session.patientId ?? null;
+    session.language = data.language;
+    session.mode = data.mode;
+    session.urgency = maxUrgency((session.urgency as Urgency) ?? 'routine', data.urgency);
+    session.specialty = data.specialty ?? session.specialty ?? null;
+    if (data.summary) session.summary = data.summary as unknown as Record<string, unknown>;
+    if (data.possibleConditions.length) session.possibleConditions = data.possibleConditions;
+    if (data.redFlags.length) session.redFlags = data.redFlags;
+    session.transcript = [
+      ...dto.messages.map((m) => ({ role: m.role, content: m.content })),
+      { role: 'assistant', content: data.assistantReply },
+    ].slice(-40);
+
+    try {
+      return await this.sessions.save(session);
+    } catch (err) {
+      this.logger.error(`Could not save triage session: ${(err as Error).message}`);
+      return session;
+    }
+  }
 }

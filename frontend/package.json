@@ -1,15 +1,24 @@
 {
   "name": "vita-care-frontend",
   "version": "1.0.0",
-  "description": "Vita Care — Healthcare platform frontend (Next.js + TypeScript)",
+  "description": "Vita Care \u2014 AI triage and doctor booking web app (Next.js)",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:maestro": "maestro test --headless --screen-size 1366x2200 .maestro"
   },
   "dependencies": {
+    "@tiptap/extension-image": "^2.27.3",
+    "@tiptap/extension-link": "^2.27.3",
+    "@tiptap/extension-placeholder": "^2.27.3",
+    "@tiptap/extension-text-align": "^2.27.3",
+    "@tiptap/extension-underline": "^2.27.3",
+    "@tiptap/pm": "^2.27.3",
+    "@tiptap/react": "^2.27.3",
+    "@tiptap/starter-kit": "^2.27.3",
     "axios": "^1.7.7",
     "lucide-react": "^0.446.0",
     "next": "14.2.13",
@@ -21,5 +30,6 @@
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "typescript": "^5.6.2"
-  }
+  },
+  "author": "Vita Care Team"
 }

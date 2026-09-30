@@ -1,11 +1,25 @@
 import Link from 'next/link';
+import {
+  Baby,
+  Bone,
+  Brain,
+  Ear,
+  HeartPulse,
+  Smile,
+  Sparkles,
+  Stethoscope,
+} from 'lucide-react';
 import styles from './home.module.css';
 
 const DEPARTMENTS = [
-  { name: 'Neurology', icon: '/images/departments/neurology.png', desc: 'Brain, spine & nervous system care.' },
-  { name: 'Heart Care', icon: '/images/departments/heart.png', desc: 'Cardiology & preventive heart health.' },
-  { name: 'Osteoporosis', icon: '/images/departments/osteoporosis.png', desc: 'Bone density & joint treatment.' },
-  { name: 'ENT', icon: '/images/departments/ent.png', desc: 'Ear, nose & throat specialists.' },
+  { name: 'General Physician', icon: Stethoscope, desc: 'Fever, infections, diabetes and BP follow-ups.' },
+  { name: 'Heart Care', icon: HeartPulse, desc: 'Chest pain, blood pressure and heart health.' },
+  { name: 'Neurology', icon: Brain, desc: 'Headaches, dizziness, seizures and nerves.' },
+  { name: 'Pediatrics', icon: Baby, desc: 'Children’s fevers, growth and vaccines.' },
+  { name: 'Gynecology', icon: Sparkles, desc: 'Pregnancy care, periods and PCOS.' },
+  { name: 'Dermatology', icon: Smile, desc: 'Rashes, itching, acne and allergies.' },
+  { name: 'ENT', icon: Ear, desc: 'Ear, nose, throat and sinus problems.' },
+  { name: 'Osteoporosis', icon: Bone, desc: 'Bones, joints and back pain.' },
 ];
 
 export default function Departments() {
@@ -13,11 +27,10 @@ export default function Departments() {
     <section className="section" id="departments">
       <div className="container">
         <div className="section-head">
-          <span className="eyebrow">What we treat</span>
-          <h2>Our Departments</h2>
+          <h2>Find care by department</h2>
           <p>
-            Explore our core specialties and find the right expert for your
-            needs.
+            Not sure which one? Describe your symptoms to the AI Doctor and it
+            will point you to the right department.
           </p>
         </div>
 
@@ -29,14 +42,17 @@ export default function Departments() {
               className={`card card-hover ${styles.deptCard}`}
             >
               <div className={styles.deptIcon}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={d.icon} alt={d.name} />
+                <d.icon size={30} strokeWidth={1.6} />
               </div>
               <h3>{d.name}</h3>
               <p>{d.desc}</p>
             </Link>
           ))}
         </div>
+        <p className={styles.deptMore}>
+          Also available: <Link href="/doctors?specialty=Psychiatry">Psychiatry</Link>, with
+          confidential consultations.
+        </p>
       </div>
     </section>
   );

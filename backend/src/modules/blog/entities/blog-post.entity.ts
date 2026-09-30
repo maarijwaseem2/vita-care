@@ -3,9 +3,13 @@ import {
   CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 
-/** A health blog article shown on the landing page and the /blog route. */
+/**
+ * A health article, managed from the admin portal.
+ * `content` is sanitised HTML from the rich-text editor.
+ */
 @Entity('blog_posts')
 export class BlogPost {
   @PrimaryGeneratedColumn()
@@ -23,15 +27,33 @@ export class BlogPost {
   @Column({ type: 'text' })
   content: string;
 
-  @Column({ nullable: true })
-  category: string;
+  @Column({ type: 'varchar', nullable: true })
+  category: string | null;
 
-  @Column({ nullable: true })
-  author: string;
+  @Column({ type: 'varchar', nullable: true })
+  author: string | null;
 
-  @Column({ name: 'image_url', nullable: true })
-  imageUrl: string;
+  /** Banner image (uploaded file URL or a /public path). */
+  @Column({ name: 'image_url', type: 'varchar', nullable: true })
+  imageUrl: string | null;
+
+  /** SEO: <title>. Falls back to the post title. Keep under ~60 characters. */
+  @Column({ name: 'meta_title', type: 'varchar', length: 70, nullable: true })
+  metaTitle: string | null;
+
+  /** SEO: meta description. Falls back to the excerpt. ~150–160 characters. */
+  @Column({ name: 'meta_description', type: 'varchar', length: 170, nullable: true })
+  metaDescription: string | null;
+
+  @Column({ type: 'varchar', length: 12, default: 'published' })
+  status: 'draft' | 'published';
+
+  @Column({ name: 'reading_minutes', type: 'int', default: 3 })
+  readingMinutes: number;
 
   @CreateDateColumn({ name: 'published_at' })
   publishedAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
 }

@@ -133,6 +133,8 @@ export default function RegisterPatientPage() {
 
         <p className="auth-switch">
           Already have an account? <Link href="/login">Sign in</Link>
+          <br />
+          Healthcare professional? <Link href="/register/doctor">Join as a doctor</Link> · <Link href="/register/nurse">Join as a nurse</Link>
         </p>
       </div>
     </div>

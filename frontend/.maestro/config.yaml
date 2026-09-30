@@ -1,7 +1,17 @@
-# Maestro workspace configuration.
-# Runs every *.yaml flow in this folder. See README.md for how to run.
+# Vita Care — Maestro web suite. Run from frontend/:  npm run test:maestro
+# (backend: npm run demo:reset first so the demo data starts fresh)
 flows:
   - "*.yaml"
-
-# Example: run only smoke-tagged flows with:
-#   maestro test .maestro/ --include-tags smoke
+executionOrder:
+  continueOnFailure: true
+  flowsOrder:
+    - 01_public_home_navigation
+    - 02_public_find_doctor
+    - 03_guest_book_appointment
+    - 04_ai_doctor_safety
+    - 05_rbac_redirects
+    - 06_patient_request_home_nurse
+    - 07_nurse_accept_and_record_vitals
+    - 08_doctor_sees_vitals_and_orders_nurse
+    - 09_admin_verify_nurse
+    - 10_admin_publish_blog
