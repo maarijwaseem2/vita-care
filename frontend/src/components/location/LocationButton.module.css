@@ -1,0 +1,8 @@
+.btn { display: inline-flex; align-items: center; gap: 8px; }
+.hint { color: var(--muted); font-size: 0.82rem; margin-top: 6px; }
+.err { color: #b02a2a; font-size: 0.85rem; margin-top: 6px; }
+.ok { display: flex; gap: 8px; align-items: center; background: #e7f6fa; color: var(--navy); border: 1px solid #bfe6ee; border-radius: var(--radius-sm); padding: 10px 12px; font-size: 0.9rem; }
+.ok span { flex: 1; }
+.ok a { color: var(--blue); font-weight: 600; }
+.remove { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 4px; display: grid; place-items: center; border-radius: 50%; }
+.remove:hover { background: rgba(0, 0, 0, 0.06); }

@@ -52,13 +52,19 @@ export default function DoctorsAdmin() {
         <div>
           <h1>Doctor verification</h1>
           <p>
-            New doctors stay hidden from patients until you check their PMDC number on the council&apos;s
+            New doctors stay hidden from patients until you check their registration: PMDC for doctors, AHPC for
+            physiotherapists. Check it on the council&apos;s
             practitioners register and verify them here.
           </p>
         </div>
-        <a className={styles.btnSm} href="https://pmdc.pk/" target="_blank" rel="noopener noreferrer">
-          <ExternalLink size={15} /> Open PMDC register
-        </a>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <a className={styles.btnSm} href="https://pmdc.pk/" target="_blank" rel="noopener noreferrer">
+            <ExternalLink size={15} /> Open PMDC register
+          </a>
+          <a className={styles.btnSm} href="https://accounts.ahpc.org.pk/" target="_blank" rel="noopener noreferrer">
+            <ExternalLink size={15} /> Open AHPC portal
+          </a>
+        </div>
       </div>
 
       <div className={styles.toolbar}>
@@ -92,7 +98,7 @@ export default function DoctorsAdmin() {
             <thead>
               <tr>
                 <th>Doctor</th>
-                <th>PMDC number</th>
+                <th>Registration</th>
                 <th>Specialty & city</th>
                 <th>Registered</th>
                 <th>Status</th>
@@ -109,7 +115,9 @@ export default function DoctorsAdmin() {
                     <div className={styles.cellSub}>{d.user?.email}</div>
                     {d.clinicName && <div className={styles.cellSub}>{d.clinicName}</div>}
                   </td>
-                  <td className={styles.mono}>{d.pmdcNumber ?? '—'}</td>
+                  <td className={styles.mono}>
+                    <strong>{d.council ?? 'PMDC'}</strong> {d.pmdcNumber ?? '—'}
+                  </td>
                   <td>
                     <div>{d.specialty}</div>
                     <div className={styles.cellSub}>

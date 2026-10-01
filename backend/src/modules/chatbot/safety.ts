@@ -239,12 +239,35 @@ const NEG_AFTER_EN = /^\s*(is\s+|are\s+)?(not|none|no more|gone|absent)\b/;
 // A general question ABOUT a condition, not a report of having it:
 // "what are the signs of a heart attack?", "stroke ki alamaat kya hain?".
 const INFORMATIONAL = /\b(how (to|can i|do i) (prevent|avoid)|prevention of|read about|reading about|information about|tell me about|learn about)\b|^(what|how|when|why|which|kya|kaise|kab|kyun)\b[^!]*\b(signs?|symptoms?|causes?|alamaat|alamat|nishaniy?an|wajah|pehchan)\b|\b(signs?|symptoms?|alamaat|alamat|nishaniy?an) (of|ki|kya)\b[^!]*(\?|kya hain|kya hoti)|علامات کیا/;
-const HISTORICAL = /(\d+|kai|kuch|few|several|many|do|teen|char)\s*(saal|sal|years?|mahine|months?|baras|برس|سال)\s*(pehle|pehlay|ago|qabl|پہلے)|\bin the past\b|\bhistory of\b|\bpichle saal\b|\blast year\b|\bpast history\b/;
+const HISTORICAL = /(\d+|kai|kuch|few|several|many|do|teen|char)\s*(saal|sal|years?|mahine|months?|baras|برس|سال)\s*(pehle|pehlay|ago|qabl|پہلے)|\bin the past\b|\bhistory of\b|\bpichle saal\b|\blast year\b|\bpast history\b|(falij|stroke|فالج|laqwa)\s*(ke|kay|k)\s*ba+d|after (a |the |my |his |her )?(stroke|falij)/;
 
 /** Split into clauses so "seene mein dard nahi, pait mein dard hai" is two statements. */
-function clauses(text: string): string[] {
+export function clauses(text: string): string[] {
   return text.split(/[.!?\n۔؟,،;]+|\bbut\b|\blekin\b|\bmagar\b/).map((c) => c.trim()).filter(Boolean);
 }
+
+/**
+ * True when the words at [index, index + length) in this clause are denied
+ * ("no chest pain", "seene mein dard nahi"). "nahi ja raha" (won't go away) is NOT a denial.
+ */
+export function isNegatedMention(clause: string, index: number, length: number): boolean {
+  const before = clause.slice(0, index);
+  const after = clause.slice(index + length);
+  return (
+    (NEG_BEFORE.test(before) && !/\b(no|na|nahi)\s+(ja|ruk)/.test(before)) ||
+    DENY_AFTER.test(after) ||
+    NEG_AFTER_EN.test(after)
+  );
+}
+
+/**
+ * "nahi" up to ~3 words after the phrase ("chest pain nahi hai"), except when it means the
+ * symptom is there: "nahi ja raha" (won't go), "nahi aati" (can't sleep), "nahi ruk raha".
+ */
+const DENY_AFTER = /^[^,.;!?]{0,22}?(?:^|\s)(nahi|nahin|nai|na|نہیں)(?![a-z])(?!\s*(ja|jaa|ruk|rook|rk|ho\s*ra|jata|jati|utar|kam|thahar|aa|aat|lag|reh|sak|chal|mil|kha|pee|pi|so|رک|جا|آ))/;
+
+/** "5 saal pehle …", "history of …": a past event that should not change today's department. */
+export const TIME_AGO = /(\d+|kai|kuch|few|several|many|do|teen|char|one|two|three|four|five)\s*(saal|sal|years?|mahine|months?|baras|برس|سال)\s*(pehle|pehlay|ago|qabl|پہلے)|\bhistory of\b|\bin the past\b/;
 
 /**
  * Scan patient text and return every red-flag phrase with its status.

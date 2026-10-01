@@ -13,15 +13,10 @@ export class ChatbotController {
     private readonly ai: AiClient,
   ) {}
 
-  /** Which engine is live — the UI shows "Powered by Qwen" or "Offline mode". */
+  /** Whether the AI is live (the UI shows "Offline mode" if not). Provider and model stay private. */
   @Get('status')
   status() {
-    return {
-      aiEnabled: this.ai.configured,
-      provider: this.ai.configured ? this.ai.providerLabel : 'Offline rules',
-      model: this.ai.configured ? this.ai.textModel : null,
-      visionModel: this.ai.configured ? this.ai.visionModel : null,
-    };
+    return { aiEnabled: this.ai.configured };
   }
 
   /**

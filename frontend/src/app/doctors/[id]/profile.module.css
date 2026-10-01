@@ -108,3 +108,6 @@
   .grid { grid-template-columns: 1fr; }
   .side { position: static; }
 }
+
+/* Registering council after the name: PMDC or AHPC */
+.council { font-size: 0.5em; font-weight: 700; letter-spacing: 0.04em; color: #1d7a34; background: #e5f5e9; border-radius: 8px; padding: 3px 8px; vertical-align: middle; }

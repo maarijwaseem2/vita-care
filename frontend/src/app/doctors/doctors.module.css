@@ -47,7 +47,7 @@
 .searchBox input:focus { outline: none; }
 
 .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.filters .select { min-width: 160px; }
+.filters .select { min-width: 230px; }
 
 .results { padding: 34px 0 64px; }
 .count { color: var(--muted); font-size: 0.92rem; margin-bottom: 20px; }

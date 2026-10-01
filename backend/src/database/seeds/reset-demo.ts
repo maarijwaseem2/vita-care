@@ -26,7 +26,7 @@ async function run() {
   await q(`UPDATE home_care_requests SET visit_date = ($1::date + 1), status = 'requested', nurse_id = NULL WHERE reference = 'HN-DEMO0002'`, [clinicNow().date]);
   await q(`DELETE FROM home_care_requests WHERE notes ILIKE 'maestro%' OR notes ILIKE 'browser test%'`);
   await q(`DELETE FROM blog_posts WHERE slug LIKE 'maestro-%' OR slug LIKE 'browser-test-%'`);
-  await q(`DELETE FROM appointments WHERE patient_name = 'Maestro Tester'`);
+  await q(`DELETE FROM appointments WHERE patient_name = 'Maestro Tester' OR reason ILIKE 'browser test%' OR reason ILIKE 'e2e%'`);
   await ds.destroy();
   console.log('Demo reset complete.');
 }

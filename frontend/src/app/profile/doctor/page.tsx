@@ -292,6 +292,7 @@ export default function DoctorDashboard() {
                           <Phone size={12} style={{ verticalAlign: '-1px' }} /> {a.patientPhone}
                           {a.reason ? ` · ${a.reason}` : ''}
                         </p>
+                        {a.visitType === 'home' && <span className={styles.aiTag}>Home visit</span>}
                         {a.hasAiSummary && (
                           <span className={`${styles.aiTag} ${a.aiUrgency === 'emergency' ? styles.aiTagRed : ''}`}>
                             <Sparkles size={12} /> AI summary

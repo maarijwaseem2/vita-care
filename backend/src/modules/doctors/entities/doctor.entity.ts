@@ -104,6 +104,14 @@ export class Doctor {
   @Column({ type: 'json', nullable: true })
   languages: string[] | null;
 
+  /** Registering council: PMDC for MBBS doctors, AHPC for physiotherapists. */
+  @Column({ type: 'varchar', length: 10, default: 'PMDC' })
+  council: 'PMDC' | 'AHPC';
+
+  /** Offers visits at the patient's home (physiotherapists by default). */
+  @Column({ name: 'home_visits', default: false })
+  homeVisits: boolean;
+
   @OneToMany(() => Appointment, (appointment) => appointment.doctor)
   appointments: Appointment[];
 

@@ -15,4 +15,6 @@ export enum Specialty {
   GYNECOLOGY = 'Gynecology',
   DERMATOLOGY = 'Dermatology',
   PSYCHIATRY = 'Psychiatry',
+  PHYSIOTHERAPY = 'Physiotherapy',
+  RADIOLOGY = 'Radiology',
 }

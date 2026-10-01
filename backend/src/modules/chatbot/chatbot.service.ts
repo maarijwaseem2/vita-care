@@ -35,13 +35,17 @@ import {
   maxUrgency,
   urgencyFromFlags,
 } from './safety';
-import { offlineConsult } from './offline-triage';
+import { offlineConsult, refineSpecialty } from './offline-triage';
+import { MedicineAdvice, offlineMedicinePicks, resolveMedicines } from './medicines';
 import { consultSystemPrompt, reportSystemPrompt, safetyCheckPrompt } from './prompts';
 
 export interface ConsultResult {
+  /** Over-the-counter medicines for minor illness (doses from our formulary, safety-filtered). */
+  medicines: MedicineAdvice[];
+  /** Why no medicines were suggested (pregnancy, child), if relevant. */
+  medicineNote: string | null;
   sessionToken: string;
   mode: 'ai' | 'offline';
-  provider: string;
   language: ChatLanguage;
   reply: string;
   stage: 'interviewing' | 'assessment';
@@ -63,12 +67,14 @@ export interface ReportFinding {
   name: string;
   value: string;
   referenceRange: string;
-  status: 'low' | 'normal' | 'high' | 'unclear';
+  status: 'low' | 'normal' | 'high' | 'unclear' | 'needs review';
   explanation: string;
 }
 
 export interface ReportResult {
   readable: boolean;
+  /** true for an X-ray / CT / MRI / ultrasound picture (described only, never diagnosed). */
+  isImaging: boolean;
   documentType: string;
   summary: string;
   findings: ReportFinding[];
@@ -190,8 +196,36 @@ export class ChatbotService {
       reply.selfCare = [];
     }
 
-    // 5. Doctors in the right department, patient's city first.
-    const specialty = mapSpecialty(reply.recommendedSpecialty);
+    // 5. Department (a vague "General Physician" is sharpened by the patient's own words),
+    //    then doctors in it, patient's city first.
+    const specialty =
+      stage === 'assessment'
+        ? refineSpecialty(mapSpecialty(reply.recommendedSpecialty), allText)
+        : mapSpecialty(reply.recommendedSpecialty);
+
+    // 5b. Over-the-counter medicines for minor, non-emergency problems only.
+    //     If the model suggested none for a routine case, the rule-based picks are used.
+    let medicines: MedicineAdvice[] = [];
+    let medicineNote: string | null = null;
+    if (stage === 'assessment' && urgency !== 'emergency') {
+      const picks = reply.medicinePicks.length
+        ? reply.medicinePicks
+        : urgency === 'routine'
+          ? offlineMedicinePicks(allText)
+          : [];
+      const resolved = resolveMedicines(picks, {
+        text: allText,
+        record: profile,
+        age: patient?.age ?? null,
+        urgency,
+      });
+      medicines = resolved.medicines;
+      medicineNote = resolved.note;
+      if (reply.summary && medicines.length) {
+        reply.summary.suggestedOtc = medicines.map((m) => m.name);
+      }
+    }
+
     const recommendedDoctors =
       specialty && stage === 'assessment'
         ? await this.doctorsService.findBySpecialty(specialty, 3, patient?.city)
@@ -213,7 +247,6 @@ export class ChatbotService {
     return {
       sessionToken: session.token,
       mode,
-      provider: mode === 'ai' ? this.ai.providerLabel : 'Offline rules',
       language,
       reply: replyText,
       stage,
@@ -223,6 +256,8 @@ export class ChatbotService {
       recommendedDoctors,
       possibleConditions: reply.possibleConditions,
       selfCare: reply.selfCare,
+      medicines,
+      medicineNote,
       redFlagsToWatch: reply.redFlagsToWatch,
       redFlags,
       emergency: isEmergency ? emergencyInfo(redFlags, language) : null,
@@ -271,7 +306,7 @@ export class ChatbotService {
     }
 
     const p = extractJson(raw) ?? {};
-    const statuses = ['low', 'normal', 'high', 'unclear'];
+    const statuses = ['low', 'normal', 'high', 'unclear', 'needs review'];
     const s = (v: unknown, max = 400) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
     const findings: ReportFinding[] = Array.isArray(p.findings)
       ? (p.findings as any[])
@@ -285,11 +320,20 @@ export class ChatbotService {
           .filter((f) => f.name)
           .slice(0, 40)
       : [];
-    const specialty = mapSpecialty(typeof p.recommendedSpecialty === 'string' ? p.recommendedSpecialty : null);
-    const urgency: Urgency = ['routine', 'soon', 'emergency'].includes(p.urgency as string)
+    const docType = s(p.documentType, 40).toLowerCase();
+    // A scan image is described, never diagnosed: no conditions, sent to a radiologist.
+    const isImaging = /x-?ray|ct|mri|ultrasound|scan/.test(docType) && !/report/.test(docType);
+    const specialty = isImaging
+      ? Specialty.RADIOLOGY
+      : mapSpecialty(typeof p.recommendedSpecialty === 'string' ? p.recommendedSpecialty : null);
+    const urgency: Urgency = isImaging
+      ? p.urgency === 'emergency' ? 'soon' : 'routine'
+      : ['routine', 'soon', 'emergency'].includes(p.urgency as string)
       ? (p.urgency as Urgency)
       : 'routine';
-    const possibleConditions = parseConsultReply(JSON.stringify({ reply: 'x', possibleConditions: p.possibleConditions })).possibleConditions;
+    const possibleConditions = isImaging
+      ? []
+      : parseConsultReply(JSON.stringify({ reply: 'x', possibleConditions: p.possibleConditions })).possibleConditions;
     const readable = p.readable !== false;
     const summaryText = s(p.summary, 1500) || raw.slice(0, 1500);
 
@@ -329,6 +373,7 @@ export class ChatbotService {
 
     return {
       readable,
+      isImaging,
       documentType: s(p.documentType, 40) || 'other',
       summary: summaryText,
       findings,

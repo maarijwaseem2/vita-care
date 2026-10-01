@@ -31,6 +31,9 @@ function describeDays(days: string[]): string {
 }
 
 const PMDC_RE = /^\d{3,7}-?[A-Za-z]{1,2}$/;
+const AHPC_RE = /^[A-Za-z0-9][A-Za-z0-9\-/]{3,29}$/;
+/** Display label for a department in the dropdown. */
+const deptLabel = (s: string) => (s === 'Physiotherapy' ? 'Physiotherapy (Physiotherapist, DPT)' : s);
 
 export default function RegisterDoctorPage() {
   const { setSession } = useAuth();
@@ -50,14 +53,17 @@ export default function RegisterDoctorPage() {
   const toggle = (list: string[], v: string, setter: (x: string[]) => void) =>
     setter(list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
 
-  const pmdcOk = PMDC_RE.test(f.pmdcNumber.trim());
+  // MBBS doctors register with PMDC; physiotherapists with AHPC (Allied Health Professionals Council).
+  const isPhysio = f.specialty === 'Physiotherapy';
+  const council = isPhysio ? 'AHPC' : 'PMDC';
+  const pmdcOk = (isPhysio ? AHPC_RE : PMDC_RE).test(f.pmdcNumber.trim());
   const timeOk = TIMES.indexOf(f.to) > TIMES.indexOf(f.from);
   const schedule = useMemo(() => describeDays(days), [days]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!pmdcOk) return setError('Enter your PMDC registration number, e.g. 12345-P.');
+    if (!pmdcOk) return setError(isPhysio ? 'Enter your AHPC registration number.' : 'Enter your PMDC registration number, e.g. 12345-P.');
     if (!days.length) return setError('Choose at least one OPD day.');
     if (!timeOk) return setError('OPD end time must be after the start time.');
     if (!agree) return setError('Please confirm the declaration.');
@@ -99,7 +105,7 @@ export default function RegisterDoctorPage() {
           <h1>Join Vita Care as a doctor</h1>
           <p>
             Patients arrive with an AI summary of their symptoms and history. Your profile goes live after our
-            team checks your PMDC registration, usually within one working day.
+            team checks your PMDC registration (AHPC for physiotherapists), usually within one working day.
           </p>
         </header>
 
@@ -153,7 +159,7 @@ export default function RegisterDoctorPage() {
                 <label htmlFor="specialty">Department</label>
                 <select id="specialty" className="select" value={f.specialty} onChange={(e) => set('specialty', e.target.value)} required>
                   <option value="">Choose…</option>
-                  {SPECIALTIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {SPECIALTIES.map((s) => <option key={s} value={s}>{deptLabel(s)}</option>)}
                 </select>
               </div>
               <div className="field">
@@ -184,26 +190,40 @@ export default function RegisterDoctorPage() {
           </fieldset>
 
           <fieldset className={`${styles.section} ${styles.verify}`}>
-            <legend>3. PMDC verification</legend>
+            <legend>3. {council} verification</legend>
             <div className={styles.verifyNote}>
               <ShieldCheck size={20} />
-              <p>
-                We check this number on the Pakistan Medical &amp; Dental Council practitioners register. Patients only
-                see verified doctors.
-              </p>
+              {isPhysio ? (
+                <p>
+                  Physiotherapists are registered by the <strong>Allied Health Professionals Council (AHPC)</strong>, not PMDC.
+                  We check your AHPC number before patients can see you. Not registered yet? Apply on the{' '}
+                  <a href="https://accounts.ahpc.org.pk/" target="_blank" rel="noopener noreferrer">AHPC portal</a> (details on{' '}
+                  <a href="https://ahpc.org.pk/" target="_blank" rel="noopener noreferrer">ahpc.org.pk</a>), then add the number here.
+                </p>
+              ) : (
+                <p>
+                  We check this number on the Pakistan Medical &amp; Dental Council practitioners register. Patients only
+                  see verified doctors. Not registered yet? Apply at{' '}
+                  <a href="https://pmdc.pk/" target="_blank" rel="noopener noreferrer">pmdc.pk</a>.
+                </p>
+              )}
             </div>
             <div className="field">
-              <label htmlFor="pmdc">PMDC registration number</label>
+              <label htmlFor="pmdc">{council} registration number</label>
               <input
                 id="pmdc"
                 className="input"
-                placeholder="12345-P"
+                placeholder={isPhysio ? 'Your AHPC registration number' : '12345-P'}
                 value={f.pmdcNumber}
                 onChange={(e) => set('pmdcNumber', e.target.value)}
                 aria-invalid={!!f.pmdcNumber && !pmdcOk}
                 required
               />
-              {f.pmdcNumber && !pmdcOk && <span className={styles.bad}>Format: digits, a hyphen and a letter, e.g. 12345-P</span>}
+              {f.pmdcNumber && !pmdcOk && (
+                <span className={styles.bad}>
+                  {isPhysio ? 'Use letters, numbers and dashes only.' : 'Format: digits, a hyphen and a letter, e.g. 12345-P'}
+                </span>
+              )}
             </div>
           </fieldset>
 

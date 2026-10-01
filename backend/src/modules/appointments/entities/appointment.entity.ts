@@ -69,6 +69,19 @@ export class Appointment {
   @Column({ type: 'enum', enum: AppointmentStatus, default: AppointmentStatus.BOOKED })
   status: AppointmentStatus;
 
+  /** "clinic" or "home" (home visits are offered by physiotherapists). */
+  @Column({ name: 'visit_type', type: 'varchar', length: 8, default: 'clinic' })
+  visitType: 'clinic' | 'home';
+
+  @Column({ name: 'home_address', type: 'varchar', length: 500, nullable: true })
+  homeAddress: string | null;
+
+  @Column({ type: 'decimal', precision: 9, scale: 6, nullable: true, transformer: { to: (v: number | null) => v, from: (v: string | null) => (v == null ? null : Number(v)) } })
+  latitude: number | null;
+
+  @Column({ type: 'decimal', precision: 9, scale: 6, nullable: true, transformer: { to: (v: number | null) => v, from: (v: string | null) => (v == null ? null : Number(v)) } })
+  longitude: number | null;
+
   /** AI pre-visit summary the patient chose to share with the doctor. */
   @ManyToOne(() => TriageSession, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'triage_session_id' })

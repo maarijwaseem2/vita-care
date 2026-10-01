@@ -38,6 +38,9 @@ describe('red-flag safety guard', () => {
     // someone else, happening now
     ['abbu ko abhi falij ka hamla hua hai', 'stroke'],
     ['sir par chot lagi hai', 'head_injury'],
+    // "after eating" must NOT hide chest pain
+    ['khana khane ke baad seene mein dard ho raha hai', 'chest_pain'],
+    ['chest pain after walking up the stairs', 'chest_pain'],
     // added after the first evaluation run
     ['mere seene mein bohat dard hai aur paseena aa raha hai', 'chest_pain'],
     ['sudden worst headache of my life', 'thunderclap_headache'],
@@ -65,6 +68,9 @@ describe('red-flag safety guard', () => {
     // in the past
     'meri ammi ko 5 saal pehle falij hua tha, ab mujhe sar dard hai',
     'history of seizure in childhood, now I have a cold',
+    // stroke rehabilitation is past history, not a new stroke
+    'abbu ko falij ke baad chalne mein mushkil hai, physio chahiye',
+    'after his stroke he needs help walking',
     'I read about stroke, how to prevent it?',
     'my 2 year old son is teething',
     'baby is drinking milk well, just a runny nose',

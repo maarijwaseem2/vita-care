@@ -157,6 +157,10 @@ export const appointmentsApi = {
     timeSlot: string;
     reason?: string;
     triageSessionToken?: string;
+    visitType?: 'clinic' | 'home';
+    homeAddress?: string;
+    latitude?: number;
+    longitude?: number;
   }): Promise<Appointment> {
     const { data } = await http.post<Appointment>('/appointments', payload);
     return data;

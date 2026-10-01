@@ -364,3 +364,9 @@
   .heroArt { max-width: 200px; }
   .doctorGrid { grid-template-columns: 1fr; }
 }
+
+/* Eleven departments + "All doctors": 4 per row on wide screens, 2 per row below. */
+.deptGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+@media (max-width: 1100px) { .deptGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .deptGrid { gap: 12px; } }
+.deptAll { border-style: dashed; }

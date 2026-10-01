@@ -15,6 +15,8 @@ export const SPECIALTIES = [
   'Psychiatry',
   'ENT',
   'Osteoporosis',
+  'Physiotherapy',
+  'Radiology',
 ] as const;
 export type Specialty = (typeof SPECIALTIES)[number];
 
@@ -55,6 +57,10 @@ export interface Doctor {
   experienceYears?: number | null;
   languages?: string[] | null;
   pmdcNumber?: string | null;
+  /** PMDC for MBBS doctors, AHPC for physiotherapists. */
+  council?: 'PMDC' | 'AHPC';
+  /** Offers visits at the patient's home. */
+  homeVisits?: boolean;
   verificationStatus?: 'pending' | 'verified' | 'rejected';
   verificationNote?: string | null;
 }
@@ -84,6 +90,10 @@ export interface Patient {
 export type AppointmentStatus = 'booked' | 'completed' | 'cancelled';
 
 export interface Appointment {
+  visitType?: 'clinic' | 'home';
+  homeAddress?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   id: number;
   reference: string;
   doctorId: number;
@@ -167,10 +177,20 @@ export interface RedFlag {
   urgency: Urgency;
 }
 
+export interface MedicineAdvice {
+  id: string;
+  name: string;
+  examples: string[];
+  usedFor: string;
+  adultDose: string;
+  maxDose: string;
+  cautions: string[];
+  reason: string;
+}
+
 export interface ConsultResult {
   sessionToken: string;
   mode: 'ai' | 'offline';
-  provider: string;
   language: ChatLanguage;
   reply: string;
   stage: 'interviewing' | 'assessment';
@@ -180,6 +200,9 @@ export interface ConsultResult {
   recommendedDoctors: Doctor[];
   possibleConditions: PossibleCondition[];
   selfCare: string[];
+  /** Over-the-counter medicines for minor illness; doses come from the server's formulary. */
+  medicines?: MedicineAdvice[];
+  medicineNote?: string | null;
   redFlagsToWatch: string[];
   redFlags: RedFlag[];
   emergency: { headline: string; contacts: { name: string; number: string }[] } | null;
@@ -190,9 +213,6 @@ export interface ConsultResult {
 
 export interface AiStatus {
   aiEnabled: boolean;
-  provider: string;
-  model: string | null;
-  visionModel: string | null;
 }
 
 export interface TriageSessionView {
@@ -232,7 +252,7 @@ export interface ReportFinding {
   name: string;
   value: string;
   referenceRange: string;
-  status: 'low' | 'normal' | 'high' | 'unclear';
+  status: 'low' | 'normal' | 'high' | 'unclear' | 'needs review';
   explanation: string;
 }
 
@@ -240,6 +260,8 @@ export interface ReportResult {
   possibleConditions: PossibleCondition[];
   sessionToken: string | null;
   readable: boolean;
+  /** X-ray / CT / MRI / ultrasound picture: described, never diagnosed. */
+  isImaging?: boolean;
   documentType: string;
   summary: string;
   findings: ReportFinding[];

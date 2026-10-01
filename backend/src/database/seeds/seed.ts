@@ -10,7 +10,7 @@ import { Appointment } from '../../modules/appointments/entities/appointment.ent
 import { BlogPost } from '../../modules/blog/entities/blog-post.entity';
 import { TriageSession } from '../../modules/chatbot/entities/triage-session.entity';
 import { newReference } from '../../common/utils/reference';
-import { generateDoctors } from './doctors-dataset';
+import { generateDoctors, generatePhysiotherapists, generateRadiologists } from './doctors-dataset';
 import { Nurse } from '../../modules/nurses/entities/nurse.entity';
 import { HomeCareRequest } from '../../modules/nurses/entities/home-care-request.entity';
 import { alertLevel, checkVitals } from '../../modules/nurses/vitals';
@@ -236,7 +236,12 @@ async function run() {
       experienceYears: Number(d.experiences.join(' ').match(/\((\d+)\s*yrs?\)/)?.[1] ?? 10),
       languages: ['Urdu', 'English'],
     }));
-    const everyone = [...named, ...generateDoctors(72).map((g) => ({ ...g, image: '' }))];
+    const everyone = [
+      ...named,
+      ...generateDoctors(72).map((g) => ({ ...g, image: '' })),
+      ...generatePhysiotherapists(12).map((g) => ({ ...g, image: '' })),
+      ...generateRadiologists(8).map((g) => ({ ...g, image: '' })),
+    ];
     let added = 0;
     for (const seed of everyone) {
       const exists = await manager.findOne(User, { where: { email: seed.email } });
@@ -268,6 +273,8 @@ async function run() {
           clinicName: seed.clinicName,
           experienceYears: seed.experienceYears,
           languages: seed.languages,
+          council: (seed as { council?: 'PMDC' | 'AHPC' }).council ?? 'PMDC',
+          homeVisits: (seed as { homeVisits?: boolean }).homeVisits ?? false,
           verificationStatus: 'verified',
           verifiedAt: new Date(),
         }),

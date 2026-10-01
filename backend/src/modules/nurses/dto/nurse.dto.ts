@@ -43,6 +43,10 @@ export class CreateHomeCareDto {
   @IsString() @MinLength(2) @MaxLength(80) city: string;
   @IsOptional() @IsIn(['any', 'female', 'male']) preferredGender?: 'any' | 'female' | 'male';
   @IsOptional() @IsString() @MaxLength(1000) notes?: string;
+  /** Optional GPS location shared from the patient's phone. */
+  @IsOptional() @IsNumber() @Min(-90) @Max(90) latitude?: number;
+  @IsOptional() @IsNumber() @Min(-180) @Max(180) longitude?: number;
+
   /** Optional: request a specific verified nurse. */
   @IsOptional() @IsInt() nurseId?: number;
 }

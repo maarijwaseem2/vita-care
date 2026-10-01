@@ -19,6 +19,7 @@ const STATUS_LABEL: Record<string, string> = {
   high: 'High',
   normal: 'Normal',
   unclear: '—',
+  'needs review': 'Ask doctor',
 };
 
 /**
@@ -99,10 +100,11 @@ export default function ReportPage() {
         </Link>
 
         <div className={styles.head}>
-          <h1>Understand your lab report</h1>
+          <h1>Understand your report or scan</h1>
           <p>
-            Take a clear photo of a blood test, urine test or prescription. The AI reads it and
-            explains each value in plain language, then suggests which doctor to see.
+            Take a clear photo of a blood test, prescription, radiology report, X-ray, CT or MRI. The AI explains
+            lab values in plain language. For scans it only describes what can be seen and sends you to a
+            radiologist: it never diagnoses from a scan.
           </p>
         </div>
 
@@ -193,8 +195,20 @@ export default function ReportPage() {
                   </div>
                 )}
 
+                {result.isImaging && (
+                  <div className={styles.alertAmber}>
+                    <AlertTriangle size={18} />
+                    <span>
+                      This is a description of what can be seen, not a diagnosis. Only a radiologist can read a scan
+                      properly: ask for the written radiology report and show it to your doctor.
+                    </span>
+                  </div>
+                )}
+
                 <div className="card card-pad">
-                  <h2 className={styles.h2}>{result.readable ? 'What your report says' : 'We could not read this'}</h2>
+                  <h2 className={styles.h2}>
+                    {!result.readable ? 'We could not read this' : result.isImaging ? 'What can be seen in this scan' : 'What your report says'}
+                  </h2>
                   <p className={styles.summary}>{result.summary}</p>
                 </div>
 
@@ -204,10 +218,10 @@ export default function ReportPage() {
                       <table className={styles.table}>
                         <thead>
                           <tr>
-                            <th>Test</th>
-                            <th>Your value</th>
-                            <th>Normal range</th>
-                            <th>Status</th>
+                            <th>{result.isImaging ? 'Area' : 'Test'}</th>
+                            <th>{result.isImaging ? 'What is seen' : 'Your value'}</th>
+                            {!result.isImaging && <th>Normal range</th>}
+                            {!result.isImaging && <th>Status</th>}
                           </tr>
                         </thead>
                         <tbody>
@@ -218,12 +232,14 @@ export default function ReportPage() {
                                 <span className={styles.explain}>{f.explanation}</span>
                               </td>
                               <td dir="ltr">{f.value || '—'}</td>
-                              <td dir="ltr">{f.referenceRange || '—'}</td>
-                              <td>
-                                <span className={`${styles.status} ${styles[`st_${f.status}`]}`}>
-                                  {STATUS_LABEL[f.status]}
-                                </span>
-                              </td>
+                              {!result.isImaging && <td dir="ltr">{f.referenceRange || '—'}</td>}
+                              {!result.isImaging && (
+                                <td>
+                                  <span className={`${styles.status} ${styles[`st_${f.status.replace(' ', '_')}`]}`}>
+                                    {STATUS_LABEL[f.status] ?? f.status}
+                                  </span>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>

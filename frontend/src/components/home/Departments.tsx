@@ -4,7 +4,11 @@ import {
   Bone,
   Brain,
   Ear,
+  HeartHandshake,
   HeartPulse,
+  PersonStanding,
+  ScanLine,
+  Users,
   Smile,
   Sparkles,
   Stethoscope,
@@ -19,7 +23,10 @@ const DEPARTMENTS = [
   { name: 'Gynecology', icon: Sparkles, desc: 'Pregnancy care, periods and PCOS.' },
   { name: 'Dermatology', icon: Smile, desc: 'Rashes, itching, acne and allergies.' },
   { name: 'ENT', icon: Ear, desc: 'Ear, nose, throat and sinus problems.' },
-  { name: 'Osteoporosis', icon: Bone, desc: 'Bones, joints and back pain.' },
+  { name: 'Osteoporosis', icon: Bone, desc: 'Bones, joints, arthritis and fractures.' },
+  { name: 'Physiotherapy', icon: PersonStanding, desc: 'Rehab after stroke (falij), accident or surgery; long-lasting back pain, sprains.' },
+  { name: 'Radiology', icon: ScanLine, desc: 'X-ray, CT, MRI and ultrasound reports read by radiologists.' },
+  { name: 'Psychiatry', icon: HeartHandshake, desc: 'Anxiety, low mood, sleep and stress, in confidence.' },
 ];
 
 export default function Departments() {
@@ -34,7 +41,7 @@ export default function Departments() {
           </p>
         </div>
 
-        <div className="grid grid-4">
+        <div className={styles.deptGrid}>
           {DEPARTMENTS.map((d) => (
             <Link
               key={d.name}
@@ -48,11 +55,14 @@ export default function Departments() {
               <p>{d.desc}</p>
             </Link>
           ))}
+          <Link href="/doctors" className={`card card-hover ${styles.deptCard} ${styles.deptAll}`}>
+            <div className={styles.deptIcon}>
+              <Users size={30} strokeWidth={1.6} />
+            </div>
+            <h3>All doctors</h3>
+            <p>Search every verified doctor by name, city or department.</p>
+          </Link>
         </div>
-        <p className={styles.deptMore}>
-          Also available: <Link href="/doctors?specialty=Psychiatry">Psychiatry</Link>, with
-          confidential consultations.
-        </p>
       </div>
     </section>
   );

@@ -75,6 +75,7 @@ describe('Vita Care API (e2e)', () => {
     const ds = app.get(DataSource);
     const names = ['Guest Booker', 'Guest Booker Two', 'Second Person', 'E2E Tester', 'Rebooker'];
     await ds.query(`DELETE FROM appointments WHERE patient_name = ANY($1)`, [names]);
+    await ds.query(`DELETE FROM appointments WHERE reason LIKE 'e2e%'`);
     await ds.query(
       `DELETE FROM triage_sessions WHERE patient_id IN
          (SELECT p.id FROM patients p JOIN users u ON u.id = p.user_id WHERE u.email LIKE 'e2e\\_%')
@@ -870,6 +871,104 @@ describe('Vita Care API (e2e)', () => {
       const token = c.body.sessionToken;
       expect((await request(http).get(`/api/chatbot/sessions/${token}`)).status).toBe(404);
       expect((await request(http).get(`/api/chatbot/sessions/${token}`).set(as(tok.patient))).status).toBe(200);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Physiotherapy (AHPC), home visits with location, radiology department
+  // ---------------------------------------------------------------------------
+  describe('Physiotherapy, AHPC and home-visit location', () => {
+    const as = (t: string) => ({ Authorization: `Bearer ${t}` });
+    let patientToken = '';
+    let nurseToken = '';
+    const firstFreeSlot = async (doctorId: number) => {
+      const today = new Date();
+      for (let i = 1; i <= 21; i++) {
+        const d = new Date(today.getTime() + i * 86_400_000).toISOString().slice(0, 10);
+        const res = await request(http).get('/api/appointments/availability').query({ doctorId, date: d });
+        const slot = res.body.slots?.find((s: any) => s.status === 'available');
+        if (res.body.opdDay && slot) return { date: d, timeSlot: slot.time };
+      }
+      throw new Error('no free slot');
+    };
+
+    beforeAll(async () => {
+      patientToken = await login('patient@vitacare.test');
+      nurseToken = await login('nurse@vitacare.test');
+    });
+
+    it('physiotherapists are listed with AHPC and home visits; radiologists exist', async () => {
+      const pt = await request(http).get('/api/doctors').query({ specialty: 'Physiotherapy' });
+      expect(pt.body.length).toBeGreaterThanOrEqual(12);
+      expect(pt.body.every((d: any) => d.council === 'AHPC' && d.homeVisits === true)).toBe(true);
+      const rad = await request(http).get('/api/doctors').query({ specialty: 'Radiology' });
+      expect(rad.body.length).toBeGreaterThanOrEqual(8);
+      expect(rad.body[0].council).toBe('PMDC');
+    });
+
+    it('registration checks PMDC for doctors and AHPC for physiotherapists', async () => {
+      const base = { password, firstName: 'Reg', lastName: 'Check', city: 'Karachi' };
+      const wrongPmdc = await request(http).post('/api/auth/register/doctor')
+        .send({ ...base, email: `e2e_pm_${stamp}@vitacare.test`, specialty: 'ENT', pmdcNumber: 'AHPC-PT-1234' });
+      expect(wrongPmdc.status).toBe(400);
+      expect(wrongPmdc.body.message).toMatch(/PMDC/);
+      const pt = await request(http).post('/api/auth/register/doctor')
+        .send({ ...base, email: `e2e_pt_${stamp}@vitacare.test`, specialty: 'Physiotherapy', pmdcNumber: 'AHPC-PT-55555' });
+      expect(pt.status).toBe(201);
+      const me = await request(http).get('/api/doctors/me/profile').set(as(pt.body.accessToken));
+      expect(me.body.council).toBe('AHPC');
+      expect(me.body.homeVisits).toBe(true);
+    });
+
+    it('home visit: refused for a clinic-only doctor, needs an address, and the receipt hides it', async () => {
+      const saif = (await request(http).get('/api/doctors').query({ search: 'Saif' })).body[0];
+      const s1 = await firstFreeSlot(saif.id);
+      const clinicOnly = await request(http).post('/api/appointments').set(as(patientToken)).send({
+        doctorId: saif.id, patientName: 'Ali Hassan', patientPhone: '03001234567', ...s1,
+        visitType: 'home', homeAddress: 'House 14, Street 7, PECHS, Karachi',
+      });
+      expect(clinicOnly.status).toBe(400);
+
+      const physio = (await request(http).get('/api/doctors').query({ specialty: 'Physiotherapy', city: 'Karachi' })).body[0];
+      const s2 = await firstFreeSlot(physio.id);
+      const noAddress = await request(http).post('/api/appointments').set(as(patientToken)).send({
+        doctorId: physio.id, patientName: 'Ali Hassan', patientPhone: '03001234567', ...s2, visitType: 'home',
+      });
+      expect(noAddress.status).toBe(400);
+
+      const ok = await request(http).post('/api/appointments').set(as(patientToken)).send({
+        doctorId: physio.id, patientName: 'Ali Hassan', patientPhone: '03001234567', ...s2, reason: 'e2e physio home visit',
+        visitType: 'home', homeAddress: 'House 14, Street 7, PECHS, Karachi', latitude: 24.8697, longitude: 67.0611,
+      });
+      expect(ok.status).toBe(201);
+      expect(ok.body.visitType).toBe('home');
+      const receipt = await request(http).get(`/api/appointments/receipt/${ok.body.reference}`);
+      expect(receipt.body.visitType).toBe('home');
+      expect(receipt.body.homeAddress).toBeUndefined();
+      expect(receipt.body.latitude).toBeUndefined();
+      await request(http).patch(`/api/appointments/${ok.body.id}/status`).set(as(patientToken)).send({ status: 'cancelled' });
+    });
+
+    it('a nurse sees the exact location only after accepting the visit', async () => {
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      const created = await request(http).post('/api/home-care').set(as(patientToken)).send({
+        service: 'vitals', visitDate: today, timeWindow: 'evening', address: 'House 14, Street 7, PECHS, Karachi', city: 'Karachi',
+        notes: 'e2e location visit', latitude: 24.8697, longitude: 67.0611,
+      });
+      expect(created.status).toBe(201);
+      const open = await request(http).get('/api/home-care/nurse/open').set(as(nurseToken));
+      const before = open.body.find((x: any) => x.id === created.body.id);
+      expect(before.latitude).toBeNull();
+      await request(http).patch(`/api/home-care/${created.body.id}/accept`).set(as(nurseToken));
+      const mine = await request(http).get('/api/home-care/nurse/mine').set(as(nurseToken));
+      const after = mine.body.find((x: any) => x.id === created.body.id);
+      expect(after.latitude).toBeCloseTo(24.8697, 4);
+      expect(after.longitude).toBeCloseTo(67.0611, 4);
+    });
+
+    it('AI status no longer reveals the provider or model', async () => {
+      const res = await request(http).get('/api/chatbot/status');
+      expect(Object.keys(res.body)).toEqual(['aiEnabled']);
     });
   });
 });

@@ -35,6 +35,13 @@ export class HomeCareRequest {
   @Column({ name: 'time_window', type: 'varchar', length: 12 }) timeWindow: string;
   @Column({ type: 'varchar', length: 500 }) address: string;
   @Column({ type: 'varchar', length: 80 }) city: string;
+  /** Location the patient shared from their phone (optional), for direct navigation. */
+  @Column({ type: 'decimal', precision: 9, scale: 6, nullable: true, transformer: { to: (v: number | null) => v, from: (v: string | null) => (v == null ? null : Number(v)) } })
+  latitude: number | null;
+
+  @Column({ type: 'decimal', precision: 9, scale: 6, nullable: true, transformer: { to: (v: number | null) => v, from: (v: string | null) => (v == null ? null : Number(v)) } })
+  longitude: number | null;
+
   @Column({ name: 'preferred_gender', type: 'varchar', length: 8, default: 'any' }) preferredGender: 'any' | 'female' | 'male';
   @Column({ type: 'text', nullable: true }) notes: string | null;
   @Column({ type: 'varchar', length: 12, default: 'requested' }) status: 'requested' | 'accepted' | 'completed' | 'cancelled';

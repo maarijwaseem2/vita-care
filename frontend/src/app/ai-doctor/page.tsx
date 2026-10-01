@@ -10,10 +10,10 @@ import {
   Mic,
   MicOff,
   Phone,
+  Pill,
   RotateCcw,
   Send,
   ShieldCheck,
-  Sparkles,
   User,
   Volume2,
   WifiOff,
@@ -289,20 +289,15 @@ export default function AiDoctorPage() {
             </p>
           </div>
           <div className={styles.headSide}>
-            {status &&
-              (status.aiEnabled ? (
-                <span className={styles.engineOn}>
-                  <Sparkles size={14} /> {status.provider}
-                  {status.model ? ` · ${status.model}` : ''}
-                </span>
-              ) : (
-                <span
-                  className={styles.engineOff}
-                  title="No AI key on the server. A rule-based interviewer is answering."
-                >
-                  <WifiOff size={14} /> Offline mode (rule-based)
-                </span>
-              ))}
+            {/* Only the fallback is flagged; the AI provider and model are not shown to patients. */}
+            {status && !status.aiEnabled && (
+              <span
+                className={styles.engineOff}
+                title="No AI key on the server. A rule-based interviewer is answering."
+              >
+                <WifiOff size={14} /> Offline mode (rule-based)
+              </span>
+            )}
             <div className={styles.langSwitch} role="radiogroup" aria-label="Reply language">
               {LANG_OPTIONS.map((o) => (
                 <button
@@ -533,6 +528,39 @@ export default function AiDoctorPage() {
                         <li key={s} lang={urAttr(s)}>{s}</li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {result.medicines && result.medicines.length > 0 && (
+                  <div className={`${styles.block} ${styles.meds}`}>
+                    <h3>
+                      <Pill size={16} /> Medicines you can take
+                    </h3>
+                    <p className={styles.medsNote}>
+                      Over-the-counter, adult doses (12+ years). Ask the pharmacist to confirm, and
+                      see a doctor if you are not better in 2–3 days.
+                    </p>
+                    <ul className={styles.medList}>
+                      {result.medicines.map((m) => (
+                        <li key={m.id}>
+                          <div className={styles.medHead}>
+                            <strong>{m.name}</strong>
+                            {m.examples.length > 0 && <span>e.g. {m.examples.join(', ')}</span>}
+                          </div>
+                          <p className={styles.medWhy} lang={urAttr(m.reason)}>{m.reason}</p>
+                          <p><b>Dose:</b> {m.adultDose}</p>
+                          <p><b>Maximum:</b> {m.maxDose}</p>
+                          {m.cautions.length > 0 && <p className={styles.medCaution}>{m.cautions.join('. ')}.</p>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {result.medicineNote && (
+                  <div className={styles.block}>
+                    <p className={styles.medsNote}>
+                      <Pill size={14} /> {result.medicineNote}
+                    </p>
                   </div>
                 )}
 

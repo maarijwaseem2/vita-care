@@ -48,6 +48,11 @@ export class AppointmentsService {
     if (!check.ok) throw new BadRequestException(check.reason);
 
     const triageSessionId = await this.chatbotService.resolveToken(dto.triageSessionToken);
+    const home = dto.visitType === 'home';
+    if (home && !doctor.homeVisits) throw new BadRequestException('This doctor does not offer home visits');
+    if (home && (dto.homeAddress?.trim().length ?? 0) < 8) {
+      throw new BadRequestException('Please give the full home address for the visit');
+    }
 
     for (let attempt = 0; attempt < 3; attempt++) {
       const appointment = this.repo.create({
@@ -60,6 +65,10 @@ export class AppointmentsService {
         timeSlot: dto.timeSlot,
         reason: dto.reason?.trim() || null,
         triageSessionId,
+        visitType: home ? 'home' : 'clinic',
+        homeAddress: home ? dto.homeAddress!.trim() : null,
+        latitude: home ? dto.latitude ?? null : null,
+        longitude: home ? dto.longitude ?? null : null,
         status: AppointmentStatus.BOOKED,
       });
       try {
@@ -103,7 +112,8 @@ export class AppointmentsService {
     });
     if (!appointment) throw new NotFoundException('Booking not found. Please check the reference.');
     // Public link: never expose the doctor's private notes or internal ids.
-    const { doctorNotes, triageSessionId, ...rest } = appointment;
+    // Public link: never expose the doctor's notes, the home address or the location.
+    const { doctorNotes, triageSessionId, homeAddress, latitude, longitude, ...rest } = appointment;
     return { ...rest, aiSummaryShared: !!triageSessionId };
   }
 

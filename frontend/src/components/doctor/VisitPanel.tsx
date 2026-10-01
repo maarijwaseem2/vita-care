@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   XCircle,
   Stethoscope,
+  MapPin,
 } from 'lucide-react';
+import { mapsLink } from '@/lib/nurse';
 import { appointmentsApi, getErrorMessage } from '@/lib/api';
 import { formatDay } from '@/lib/dates';
 import type { Appointment, ClinicalView, Urgency } from '@/lib/types';
@@ -187,6 +189,24 @@ export default function VisitPanel({
             )}
 
             {/* Reason */}
+            {appt.visitType === 'home' && (
+              <section className={`${styles.block} ${styles.aiBlock}`}>
+                <h3>
+                  <MapPin size={16} /> Home visit
+                </h3>
+                <p>{appt.homeAddress}</p>
+                <a
+                  className="btn btn-sm btn-outline"
+                  style={{ marginTop: 8 }}
+                  href={mapsLink(appt.homeAddress ?? '', appt.latitude, appt.longitude)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {appt.latitude != null ? 'Open exact location in Maps' : 'Open address in Maps'}
+                </a>
+              </section>
+            )}
+
             {appt.reason && (
               <section className={styles.block}>
                 <h3>

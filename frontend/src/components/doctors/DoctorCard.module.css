@@ -125,3 +125,6 @@
 .compact .head { padding: 16px 16px 0; gap: 12px; }
 .compact .body { padding: 12px 16px 16px; gap: 10px; }
 .compact .name { font-size: 1rem; margin-bottom: 8px; }
+
+/* Registering council next to the name: PMDC (doctors) or AHPC (physiotherapists) */
+.council { display: inline-block; vertical-align: middle; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; color: #1d7a34; background: #e5f5e9; border-radius: 6px; padding: 2px 6px; margin-inline-start: 4px; }

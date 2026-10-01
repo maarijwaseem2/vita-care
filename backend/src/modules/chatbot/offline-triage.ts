@@ -1,6 +1,8 @@
 import { Specialty } from '../../common/enums';
 import type { ChatLanguage } from './language';
 import type { AiConsultReply, Urgency } from './chatbot.helpers';
+import { offlineMedicinePicks } from './medicines';
+import { clauses, isNegatedMention, TIME_AGO } from './safety';
 
 /**
  * Rule-based fallback interviewer.
@@ -14,29 +16,84 @@ import type { AiConsultReply, Urgency } from './chatbot.helpers';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
-const KEYWORDS: Array<[Specialty, RegExp]> = [
-  [Specialty.HEART_CARE, /chest|palpitation|heart|blood pressure|\bbp\b|dil\b|dhadkan|seen[ae]|سینے|دل|دھڑکن/],
+// [department, keywords, weight]. Psychiatry weighs more so "anxious, heart races" is not read as heart disease.
+const KEYWORDS: Array<[Specialty, RegExp, number?]> = [
+  [Specialty.GENERAL, /acidity|heartburn|tezabiyat|indigestion|bad ?hazmi|\bgas\b|bloat|aphara/, 2],
+  [Specialty.HEART_CARE, /chest|palpitation|heart|blood pressure|\bbp\b|dil\b|dhadkan|seen[ae]|سینے|دل|دھڑکن|cholesterol/],
   [Specialty.NEUROLOGY, /headache|migraine|dizz|numb|tingl|memory|faint|(sar|sir) ?(me|mein)? ?dard|chakkar|سر درد|سر میں درد|چکر/],
-  [Specialty.PEDIATRICS, /\bbaby\b|infant|toddler|my (son|daughter|child|kid)|bach(a|i|ay|e|ey)\b|بچ/],
-  [Specialty.GYNECOLOGY, /period|menstru|pregnan|vaginal|pcos|mahwari|hamal|حمل|ماہواری/],
-  [Specialty.DERMATOLOGY, /rash|itch|skin|acne|eczema|pimple|kharish|daane|daney|jild|خارش|جلد|دانے/],
-  [Specialty.PSYCHIATRY, /anxi|depress|stress|panic|insomnia|can'?t sleep|ghabrahat|udaas|udas|neend|نیند|گھبراہٹ|اداس/],
+  [Specialty.PEDIATRICS, /\bbaby\b|infant|toddler|my (son|daughter|child|kid)|bach(a|i|ay|e|ey)\b|بچ|\b([1-9]|1[01]) ?(year|yr|saal)s?[ -]?old\b|\b\d+ ?(mahine|months?)\b.{0,10}\b(ka|ki|old)\b|\bbeta\b|\bbeti\b|\bson\b|\bdaughter\b/],
+  [Specialty.GYNECOLOGY, /period|menstru|pregnan|vaginal|pcos|mahwari|hamal|حمل|ماہواری|discharge|leucorr|safed pani|likoria/],
+  [Specialty.DERMATOLOGY, /rash|itch|skin|acne|eczema|pimple|kharish|daane|daney|jild|خارش|جلد|دانے|hair|baal (gir|jhar)|sunburn|dhoop se|nails?\b/],
+  [Specialty.PSYCHIATRY, /anxi|depress|stress|panic|insomnia|can'?t sleep|ghabrahat|udaas|udas|neend|نیند|گھبراہٹ|اداس|low mood|no interest|sad\b|hopeless|worried all|ghabra/, 2],
   [Specialty.ENT, /\bear\b|nose|throat|sinus|tonsil|hearing|kaan|naak|gala|کان|ناک|گلا/],
-  [Specialty.OSTEOPOROSIS, /joint|knee|back pain|bone|fracture|arthrit|ghutn|kamar|jor|haddi|گھٹن|کمر|جوڑ|ہڈی/],
+  [Specialty.PHYSIOTHERAPY, /rehab|physio|exercise|frozen shoulder|sciatica|slip ?disc|sports injury|ligament|sprain|moch|موچ|paraly|falij|فالج|walk again|chalne (me|mein) (mushkil|dikkat)|stiff|akdan|posture|knee replacement|(stroke|accident|operation|surgery|fracture|chot) (ke|kay) ba+d|after (a |an |the |my |his |her )?(stroke|surgery|operation|accident|fracture|injury)/],
+  [Specialty.OSTEOPOROSIS, /joint|knee|bone|fracture|arthrit|osteopor|ghutn|jor\b|haddi|گھٹن|جوڑ|ہڈی/],
 ];
 
-export function guessSpecialty(text: string): Specialty {
+const BACK_PAIN = /back ?pain|backache|kamar|کمر|neck pain|gardan (me|mein|main)? ?dard/;
+// Pain that has lasted weeks/months or keeps coming back (NICE NG59: exercise / physiotherapy).
+const CHRONIC = /(\d+|kai|several|many|do|teen|char|chhe|one|two|three|four|five|six|few)\s*(hafte|haftay|hafton|weeks?|mahine|mahiney|mahino|months?|saal|years?)|chronic|bar ?bar|baar ?baar|recurr|purana|lamb[ae] (arse|waqt)/;
+
+/** Keyword hits per specialty (used to refine a vague model answer). */
+export function specialtyScores(text: string): Map<Specialty, number> {
   const t = text.toLowerCase();
-  let best: Specialty = Specialty.GENERAL;
-  let bestScore = 0;
-  for (const [specialty, re] of KEYWORDS) {
-    const score = (t.match(new RegExp(re.source, 'g')) ?? []).length;
-    if (score > bestScore) {
-      best = specialty;
-      bestScore = score;
+  const scores = new Map<Specialty, number>();
+  // Count keyword hits clause by clause, skipping words the patient denies ("chest pain nahi hai").
+  for (const clause of clauses(t)) {
+    if (TIME_AGO.test(clause)) continue; // "5 saal pehle falij hua tha" is history, not today's problem
+    for (const [specialty, re, weight = 1] of KEYWORDS) {
+      const g = new RegExp(re.source, 'g');
+      let m: RegExpExecArray | null;
+      while ((m = g.exec(clause)) !== null) {
+        if (!m[0]) {
+          g.lastIndex++;
+          continue;
+        }
+        if (isNegatedMention(clause, m.index, m[0].length)) continue;
+        scores.set(specialty, (scores.get(specialty) ?? 0) + weight);
+      }
     }
   }
-  return best;
+  // Back / neck pain: new pain → General Physician (simple pain relief, keep active);
+  // weeks/months or recurring → Physiotherapy.
+  const backClauses = clauses(t).filter((c) => {
+    const m = BACK_PAIN.exec(c);
+    return m && !isNegatedMention(c, m.index, m[0].length);
+  });
+  if (backClauses.length) {
+    const target = CHRONIC.test(t) ? Specialty.PHYSIOTHERAPY : Specialty.GENERAL;
+    scores.set(target, (scores.get(target) ?? 0) + (target === Specialty.PHYSIOTHERAPY ? 2 : 1));
+  }
+  return scores;
+}
+
+/**
+ * Keep the model's department unless it is vague (General Physician / none) or
+ * has no support in the patient's words while another department clearly does.
+ * Example: "sore throat and fever" → ENT, "kamar mein dard" → Physiotherapy.
+ */
+export function refineSpecialty(model: Specialty | null, text: string): Specialty | null {
+  const scores = specialtyScores(text);
+  let best: Specialty | null = null;
+  let bestScore = 0;
+  for (const [s, n] of scores) {
+    if (n > bestScore) {
+      best = s;
+      bestScore = n;
+    }
+  }
+  if (!best) return model;
+  // A vague answer for a child goes to the paediatrician.
+  if ((model === null || model === Specialty.GENERAL) && scores.has(Specialty.PEDIATRICS)) return Specialty.PEDIATRICS;
+  if (model === null || model === Specialty.GENERAL) return best;
+  // An imaging question is for the radiologist; keep it.
+  if (model === Specialty.RADIOLOGY) return model;
+  if (!scores.has(model)) return best;
+  return model;
+}
+
+export function guessSpecialty(text: string): Specialty {
+  return refineSpecialty(Specialty.GENERAL, text) ?? Specialty.GENERAL;
 }
 
 const T = {
@@ -103,6 +160,7 @@ export function offlineConsult(messages: Msg[], lang: ChatLanguage): AiConsultRe
       quickReplies: [...options],
       possibleConditions: [],
       selfCare: [],
+      medicinePicks: [],
       redFlagsToWatch: [],
       summary: null,
     };
@@ -126,6 +184,7 @@ export function offlineConsult(messages: Msg[], lang: ChatLanguage): AiConsultRe
     quickReplies: [],
     possibleConditions: [],
     selfCare: SELF_CARE[lang],
+    medicinePicks: offlineMedicinePicks(allText),
     redFlagsToWatch: [],
     summary: {
       chiefComplaint: userTurns[0].slice(0, 300),

@@ -75,11 +75,17 @@ export default function DoctorProfilePage() {
                 <span className="badge badge-cyan">
                   <Stethoscope size={13} /> {doctor.specialty}
                 </span>
-                <span className="badge badge-green" title={doctor.pmdcNumber ? `PMDC ${doctor.pmdcNumber}` : undefined}>
-                  <BadgeCheck size={13} /> PMDC verified
+                <span
+                  className="badge badge-green"
+                  title={doctor.pmdcNumber ? `${doctor.council ?? 'PMDC'} ${doctor.pmdcNumber}` : undefined}
+                >
+                  <BadgeCheck size={13} /> {doctor.council ?? 'PMDC'} verified
                 </span>
+                {doctor.homeVisits && <span className="badge badge-cyan">Home visits available</span>}
               </div>
-              <h1>{fullName}</h1>
+              <h1>
+                {fullName} <small className={styles.council}>{doctor.council ?? 'PMDC'}</small>
+              </h1>
               {doctor.bio && <p className={styles.bio}>{doctor.bio}</p>}
 
               <div className={styles.metaRow}>

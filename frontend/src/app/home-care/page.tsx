@@ -8,6 +8,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage, patientsApi } from '@/lib/api';
 import { homeCareApi, nursesApi, PublicNurse, SERVICES, ServiceId, serviceLabel, WINDOWS } from '@/lib/nurse';
+import LocationButton, { GeoPoint } from '@/components/location/LocationButton';
 import styles from './home-care.module.css';
 
 const CITIES = ['Karachi', 'Lahore', 'Islamabad', 'Rawalpindi', 'Peshawar', 'Quetta', 'Multan', 'Faisalabad', 'Hyderabad', 'Sialkot', 'Abbottabad', 'Gujranwala'];
@@ -23,6 +24,7 @@ export default function HomeCarePage() {
   const [form, setForm] = useState({ visitDate: karachiDate(1), timeWindow: 'morning', address: '', city: 'Karachi', preferredGender: 'any', notes: '' });
   const [nurses, setNurses] = useState<PublicNurse[]>([]);
   const [nurseId, setNurseId] = useState<number | null>(null);
+  const [geo, setGeo] = useState<GeoPoint | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState<{ reference: string } | null>(null);
@@ -56,6 +58,7 @@ export default function HomeCarePage() {
       const r = await homeCareApi.create({
         service, visitDate: form.visitDate, timeWindow: form.timeWindow, address: form.address, city: form.city,
         preferredGender: form.preferredGender, notes: form.notes || undefined, nurseId: nurseId ?? undefined,
+        latitude: geo?.latitude, longitude: geo?.longitude,
       });
       setDone({ reference: r.reference });
     } catch (err) {
@@ -154,6 +157,9 @@ export default function HomeCarePage() {
                   <label htmlFor="address">Full address</label>
                   <textarea id="address" className="textarea" rows={2} value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="House, street, block, area" required />
                   <span className={styles.hint}>Only the nurse who accepts your visit sees the full address.</span>
+                </div>
+                <div className="field">
+                  <LocationButton value={geo} onChange={setGeo} />
                 </div>
                 <div className="field">
                   <label htmlFor="notes">Anything the nurse should know? <span className={styles.hint}>(optional)</span></label>

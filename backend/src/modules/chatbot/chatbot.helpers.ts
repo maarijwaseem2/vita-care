@@ -26,6 +26,8 @@ export interface ClinicalSummary {
   clinicalReasoning?: string;
   /** Red-flag phrases the patient denied or described as past history. */
   contextNotes?: string[];
+  /** OTC medicines suggested to the patient (names only), for the doctor. */
+  suggestedOtc?: string[];
   chiefComplaint: string;
   duration: string;
   severity: string;
@@ -41,6 +43,8 @@ export interface AiConsultReply extends AiStructuredReply {
   quickReplies: string[];
   possibleConditions: PossibleCondition[];
   selfCare: string[];
+  /** OTC medicine ids the model picked (resolved and safety-filtered by the server). */
+  medicinePicks: { id: string; reason: string }[];
   redFlagsToWatch: string[];
   summary: ClinicalSummary | null;
 }
@@ -130,6 +134,15 @@ export function parseConsultReply(content: string): AiConsultReply {
     quickReplies: strList(p.quickReplies, 4, 60),
     possibleConditions: conditions,
     selfCare: strList(p.selfCare, 5, 250),
+    medicinePicks: Array.isArray(p.medicines)
+      ? (p.medicines as unknown[])
+          .map((m) => {
+            const o = (m ?? {}) as Record<string, unknown>;
+            return { id: str(typeof m === 'string' ? m : o.id, 40).toLowerCase(), reason: str(o.reason, 200) };
+          })
+          .filter((m) => m.id)
+          .slice(0, 5)
+      : [],
     redFlagsToWatch: strList(p.redFlagsToWatch, 5, 200),
     summary,
   };
@@ -151,6 +164,7 @@ export function mapSpecialty(value: string | null): Specialty | null {
   const table: Array<[RegExp, Specialty]> = [
     [/neuro|brain|nerve|migraine/, Specialty.NEUROLOGY],
     [/heart|cardio|cardiac/, Specialty.HEART_CARE],
+    [/physio|physical therap|rehab/, Specialty.PHYSIOTHERAPY],
     [/osteo|bone|joint|ortho|rheumat/, Specialty.OSTEOPOROSIS],
     [/\bent\b|\bear\b|nose|throat|otolaryng/, Specialty.ENT],
     [/p(a)?ediatric|paed|child|infant/, Specialty.PEDIATRICS],

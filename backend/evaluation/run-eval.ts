@@ -15,6 +15,8 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { CASES, EvalCase } from './cases';
 import { detectRedFlags } from '../src/modules/chatbot/safety';
+import { refineSpecialty } from '../src/modules/chatbot/offline-triage';
+import { Specialty } from '../src/common/enums';
 
 type Result = { c: EvalCase; gotEmergency: boolean; specialty?: string | null; mode?: string; error?: string };
 
@@ -65,7 +67,16 @@ function pct(n: number, d: number) {
 async function main() {
   const results: Result[] = [];
   for (const c of CASES.slice(0, LIMIT)) {
-    results.push(API ? await viaApi(c) : { c, gotEmergency: detectRedFlags(c.text).some((f) => f.urgency === 'emergency') });
+    results.push(
+      API
+        ? await viaApi(c)
+        : {
+            c,
+            gotEmergency: detectRedFlags(c.text).some((f) => f.urgency === 'emergency'),
+            // Rules-only department: what the server would give if the model answered "General Physician".
+            specialty: refineSpecialty(Specialty.GENERAL, c.text) ?? Specialty.GENERAL,
+          },
+    );
     if (API) await new Promise((r) => setTimeout(r, 150)); // stay under the rate limit
   }
 
@@ -95,7 +106,7 @@ async function main() {
     `| **Under-triage** (emergency missed) | **${missed.length}** (${pct(missed.length, emerg.length)}) |`,
     `| Over-triage (routine flagged emergency) | ${falseAlarms.length} (${pct(falseAlarms.length, routine.length)}) |`,
     `| Trap cases handled (denied / past red flags) | ${traps.length - traps.filter((r) => r.gotEmergency).length}/${traps.length} |`,
-    API ? `| Department match (when recommended) | ${pct(specOk.length, withSpec.length)} (${specOk.length}/${withSpec.length}) |` : '',
+    `| Department match${API ? ' (when recommended)' : ' (rules only, model said General Physician)'} | ${pct(specOk.length, withSpec.length)} (${specOk.length}/${withSpec.length}) |`,
     API && errors.length ? `| Request errors | ${errors.length} |` : '',
     '',
     '## Emergency recall by language',
@@ -112,9 +123,10 @@ async function main() {
     '',
     ...(falseAlarms.length ? falseAlarms.map((r) => `- \`${r.c.id}\` (${r.c.lang})${r.c.trap ? ' [trap]' : ''} ${r.c.text}`) : ['None.']),
     '',
-    ...(API
-      ? ['## Department mismatches', '', ...withSpec.filter((r) => r.specialty !== r.c.specialty).map((r) => `- \`${r.c.id}\` expected ${r.c.specialty}, got ${r.specialty}: ${r.c.text}`), '']
-      : []),
+    '## Department mismatches',
+    '',
+    ...withSpec.filter((r) => r.specialty !== r.c.specialty).map((r) => `- \`${r.c.id}\` expected ${r.c.specialty}, got ${r.specialty}: ${r.c.text}`),
+    '',
     '> Development set written by the team. Labels must be reviewed by practising doctors before any clinical claim.',
   ].filter((l) => l !== '');
 

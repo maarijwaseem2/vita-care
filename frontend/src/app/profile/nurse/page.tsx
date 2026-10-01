@@ -10,7 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/api';
 import { homeFor } from '@/lib/roles';
 import { formatDay } from '@/lib/dates';
-import { formatVitals, homeCareApi, NurseProfile, NurseVisit, nursesApi, serviceLabel, Vitals } from '@/lib/nurse';
+import { formatVitals, homeCareApi, mapsLink, NurseProfile, NurseVisit, nursesApi, serviceLabel, Vitals } from '@/lib/nurse';
 import styles from './nurse.module.css';
 
 const WINDOW: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
@@ -160,7 +160,14 @@ export default function NurseDashboard() {
                       <span className={`badge ${v.status === 'completed' ? 'badge-completed' : 'badge-booked'}`}>{v.status}</span>
                     </div>
                     <p className={styles.line}><CalendarDays size={14} /> {formatDay(v.visitDate, { weekday: 'short', day: 'numeric', month: 'short' })} · {WINDOW[v.timeWindow]}</p>
-                    <p className={styles.line}><MapPin size={14} /> {v.address}</p>
+                    <p className={styles.line}>
+                      <MapPin size={14} /> {v.address}
+                      {v.status === 'accepted' && (
+                        <a href={mapsLink(v.address, v.latitude, v.longitude)} target="_blank" rel="noopener noreferrer">
+                          {v.latitude != null ? 'Open exact location in Maps' : 'Open in Maps'}
+                        </a>
+                      )}
+                    </p>
                     <p className={styles.line}>
                       <strong>{v.patient?.name}</strong>{v.patient?.age ? `, ${v.patient.age} yrs` : ''}
                       {v.patient?.phone && <> · <a href={`tel:${v.patient.phone}`}><Phone size={13} /> {v.patient.phone}</a></>}

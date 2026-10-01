@@ -60,6 +60,7 @@ export interface NurseVisit {
   id: number; reference: string; service: ServiceId; visitDate: string; timeWindow: string; city: string; address: string;
   preferredGender: string; notes: string | null; status: VisitStatus; vitals: Vitals | null; vitalAlerts: VitalAlert[];
   alertLevel: 'soon' | 'emergency' | null; nurseNotes: string | null; directRequest: boolean; orderedBy: string | null;
+  latitude?: number | null; longitude?: number | null;
   patient: { name: string; age: number | null; gender: string | null; phone: string | null; conditions?: string[]; currentMedication?: string | null } | null;
 }
 
@@ -84,7 +85,7 @@ export const nursesApi = {
 export const homeCareApi = {
   create: (data: {
     service: ServiceId; visitDate: string; timeWindow: string; address: string; city: string;
-    preferredGender?: string; notes?: string; nurseId?: number;
+    preferredGender?: string; notes?: string; nurseId?: number; latitude?: number; longitude?: number;
   }) => http.post<PatientVisit>('/home-care', data).then((r) => r.data),
   minePatient: () => http.get<PatientVisit[]>('/home-care/me/patient').then((r) => r.data),
   cancel: (id: number) => http.patch(`/home-care/${id}/cancel`).then((r) => r.data),
@@ -120,4 +121,10 @@ export function formatVitals(v: Vitals | null): string[] {
   if (v.bloodSugar) out.push(`Sugar ${v.bloodSugar} mg/dL`);
   if (v.respiratoryRate) out.push(`Resp ${v.respiratoryRate}/min`);
   return out;
+}
+
+/** Google Maps link: exact pin if the patient shared a location, else the address. */
+export function mapsLink(address: string, lat?: number | null, lng?: number | null): string {
+  const q = lat != null && lng != null ? `${lat},${lng}` : address;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 }

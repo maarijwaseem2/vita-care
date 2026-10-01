@@ -128,6 +128,6 @@ showed no horizontal overflow.
 
 ## Summary
 
-- ✅ **111 unit tests** and **91 API e2e tests** pass (includes a 13-case RBAC matrix).
-- ✅ **110-case triage evaluation**: 36/36 emergencies caught by the safety guard, 14/14 trap cases correct.
+- ✅ **126 unit tests** and **96 API e2e tests** pass (includes a 13-case RBAC matrix, AHPC and home-visit location tests).
+- ✅ **119-case evaluation**: 36/36 emergencies, 16/16 trap cases, department routing 82/83 (rules only).
 - ✅ **10 Maestro flows** covering every role (results in `docs/WORK-SUMMARY.md`).

@@ -188,6 +188,8 @@ export class NursesService {
         city: dto.city.trim(),
         preferredGender: dto.preferredGender ?? 'any',
         notes: dto.notes?.trim() || null,
+        latitude: dto.latitude ?? null,
+        longitude: dto.longitude ?? null,
         status: 'requested',
       }),
     );
@@ -312,6 +314,9 @@ export class NursesService {
       preferredGender: r.preferredGender, notes: r.notes, status: r.status, vitals: r.vitals,
       vitalAlerts: r.vitalAlerts ?? [], alertLevel: r.alertLevel, nurseNotes: r.nurseNotes, completedAt: r.completedAt,
       directRequest: !!r.nurseId,
+      // Exact location only after the nurse has accepted the visit.
+      latitude: accepted ? r.latitude : null,
+      longitude: accepted ? r.longitude : null,
       orderedBy: r.orderedByDoctor ? `${r.orderedByDoctor.title} ${r.orderedByDoctor.firstName} ${r.orderedByDoctor.lastName}` : null,
       patient: p
         ? {

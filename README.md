@@ -12,12 +12,23 @@ AI via any OpenAI-compatible API (**OpenAI** or **Alibaba Qwen**) · voice via O
 
 ---
 
+## What's new (1 Oct 2026)
+
+- **OTC medicines for minor illness** from a fixed formulary (doses never written by the AI; safety rules for fever/dengue, BP, kidney, pregnancy, children).
+- **Department rules**: throat with fever → ENT; new back pain → General Physician; long-lasting pain, stroke (falij) / accident / surgery rehab → **Physiotherapy**; scans → **Radiology**.
+- **Physiotherapists register with AHPC** (not PMDC); council badge next to every doctor's name.
+- **X-ray / CT / MRI photos** are described, never diagnosed; patients are sent to a radiologist.
+- **Home visits with GPS location** for nurses and physiotherapists (shared only after acceptance; never on the public receipt).
+- Bigger dropdowns, real About photo, AI provider/model no longer shown.
+
+Full details and the comparison with other platforms: [`docs/WORK-SUMMARY.md`](docs/WORK-SUMMARY.md).
+
 ## Four roles
 
 | Role | Signs up at | Dashboard | Can do |
 | --- | --- | --- | --- |
 | Patient | `/register/patient` | `/profile/patient` | AI Doctor, lab-report explainer, book doctors, request home nurse, see vitals and alerts, keep medical history |
-| Doctor | `/register/doctor` (PMDC number required) | `/profile/doctor` | See AI pre-visit summary + history + home-visit vitals, complete/cancel visits, **order home nursing** |
+| Doctor | `/register/doctor` (PMDC number; physiotherapists: AHPC number) | `/profile/doctor` | See AI pre-visit summary + history + home-visit vitals, complete/cancel visits, **order home nursing**; physiotherapists also get home-visit bookings with the patient's location |
 | Nurse | `/register/nurse` (PNC number required) | `/profile/nurse` | Accept home visits in their city, record vitals, get red-flag alerts |
 | Admin | seeded only (never public signup) | `/admin` | Verify doctors and nurses, AI safety monitor, users (suspend), blog CMS, audit log, statistics |
 
@@ -114,9 +125,9 @@ sugar < 54 mg/dL, …) and alerts the nurse, the patient and the treating doctor
 
 ```bash
 cd backend
-npm test                 # 111 unit tests (safety guard, vitals rules, schedule, knowledge, parsing, slugs)
-npm run test:e2e         # 91 API tests on the real database, incl. a 13-case RBAC matrix
-npm run eval             # 110-case triage evaluation (36 emergencies, 14 trap cases)
+npm test                 # 126 unit tests (safety guard, departments, OTC medicines, vitals, schedule, parsing)
+npm run test:e2e         # 96 API tests on the real database, incl. a 13-case RBAC matrix
+npm run eval             # 119-case evaluation: emergencies, trap cases, department routing
 
 cd ../frontend
 npm run test:maestro     # 10 Maestro web flows, one or more per role (see docs/TESTING.md)

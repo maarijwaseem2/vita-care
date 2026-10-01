@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Bot, CalendarCheck, Clock } from 'lucide-react';
+import { ArrowLeft, Bot, Building2, CalendarCheck, Clock, Home } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import Loader from '@/components/ui/Loader';
 import EmptyState from '@/components/ui/EmptyState';
@@ -11,6 +11,7 @@ import { appointmentsApi, chatbotApi, doctorsApi, getErrorMessage } from '@/lib/
 import { useAuth } from '@/context/AuthContext';
 import { clinicDate, formatDay } from '@/lib/dates';
 import type { Availability, Doctor, TriageSessionView } from '@/lib/types';
+import LocationButton, { GeoPoint } from '@/components/location/LocationButton';
 import styles from './booking.module.css';
 
 const DAYS_SHOWN = 14;
@@ -38,6 +39,9 @@ function BookingForm() {
   const [patientName, setPatientName] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
   const [reason, setReason] = useState('');
+  const [visitType, setVisitType] = useState<'clinic' | 'home'>('clinic');
+  const [homeAddress, setHomeAddress] = useState('');
+  const [geo, setGeo] = useState<GeoPoint | null>(null);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -99,6 +103,9 @@ function BookingForm() {
         timeSlot: slot,
         reason: reason || undefined,
         triageSessionToken: triage && shareSummary ? triage.token : undefined,
+        ...(visitType === 'home'
+          ? { visitType: 'home' as const, homeAddress, latitude: geo?.latitude, longitude: geo?.longitude }
+          : {}),
       });
       router.push(`/receipt/${appointment.reference}`);
     } catch (err) {
@@ -245,6 +252,40 @@ function BookingForm() {
                 />
               </div>
             </div>
+
+            {doctor.homeVisits && (
+              <fieldset className={styles.visitType}>
+                <legend>Where should the session take place?</legend>
+                <div className={styles.visitOptions} role="radiogroup">
+                  <label className={`${styles.visitOpt} ${visitType === 'clinic' ? styles.visitOn : ''}`}>
+                    <input type="radio" name="visitType" checked={visitType === 'clinic'} onChange={() => setVisitType('clinic')} />
+                    <Building2 size={18} /> At the clinic
+                  </label>
+                  <label className={`${styles.visitOpt} ${visitType === 'home' ? styles.visitOn : ''}`}>
+                    <input type="radio" name="visitType" checked={visitType === 'home'} onChange={() => setVisitType('home')} />
+                    <Home size={18} /> At my home
+                  </label>
+                </div>
+                {visitType === 'home' && (
+                  <>
+                    <div className="field">
+                      <label htmlFor="homeAddress">Full home address</label>
+                      <textarea
+                        id="homeAddress"
+                        className="textarea"
+                        rows={2}
+                        value={homeAddress}
+                        onChange={(e) => setHomeAddress(e.target.value)}
+                        placeholder="House, street, block, area, city"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                    <LocationButton value={geo} onChange={setGeo} />
+                  </>
+                )}
+              </fieldset>
+            )}
 
             <div className="field">
               <label htmlFor="reason">

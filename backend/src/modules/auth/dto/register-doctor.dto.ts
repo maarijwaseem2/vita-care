@@ -18,11 +18,16 @@ import { Gender, Specialty } from '../../../common/enums';
 /** PMDC registration numbers look like 12345-P, 1234-N, 67890-D (digits, dash, letter). */
 export const PMDC_RE = /^\d{3,7}-?[A-Za-z]{1,2}$/;
 export const PMDC_MSG = 'Enter your PMDC registration number, e.g. 12345-P';
+/** AHPC (physiotherapists) numbers vary in format: letters, digits, dashes or slashes. */
+export const AHPC_RE = /^[A-Za-z0-9][A-Za-z0-9\-/]{3,29}$/;
+export const AHPC_MSG = 'Enter your AHPC registration number (Allied Health Professionals Council)';
+/** Either format; the service then checks the right one for the chosen department. */
+export const REG_RE = /^[A-Za-z0-9][A-Za-z0-9\-/]{2,29}$/;
 
 export class RegisterDoctorDto {
   /** Required: an admin checks it on pmdc.pk before the profile goes live. */
   @IsString()
-  @Matches(PMDC_RE, { message: PMDC_MSG })
+  @Matches(REG_RE, { message: 'Enter your PMDC (doctors) or AHPC (physiotherapists) registration number' })
   pmdcNumber: string;
 
   @IsOptional()

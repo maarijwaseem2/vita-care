@@ -57,3 +57,4 @@
 .list { padding-inline-start: 20px; display: flex; flex-direction: column; gap: 6px; }
 .doctors { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; }
 .disclaimer { font-size: 0.8rem; color: var(--muted); }
+.st_needs_review { background: #fff4df; color: #8a5a00; }

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarClock, MapPin, Star } from 'lucide-react';
+import { CalendarClock, MapPin, Star, Home } from 'lucide-react';
 import Avatar from '@/components/ui/Avatar';
 import type { Doctor } from '@/lib/types';
 import styles from './DoctorCard.module.css';
@@ -21,7 +21,15 @@ export default function DoctorCard({
       <div className={styles.head}>
         <Avatar name={fullName} src={doctor.imageUrl} size={compact ? 48 : 72} />
         <div className={styles.headText}>
-          <h3 className={styles.name}>{fullName}</h3>
+          <h3 className={styles.name}>
+            {fullName}{' '}
+            <span
+              className={styles.council}
+              title={doctor.council === 'AHPC' ? 'Registered with the Allied Health Professionals Council' : 'Registered with the Pakistan Medical & Dental Council'}
+            >
+              {doctor.council ?? 'PMDC'}
+            </span>
+          </h3>
           <div className={styles.tags}>
             <span className={styles.specialty}>{doctor.specialty}</span>
             <span className={styles.rating} aria-label={`Rating ${Number(doctor.rating).toFixed(1)} out of 5`}>
@@ -33,6 +41,11 @@ export default function DoctorCard({
 
       <div className={styles.body}>
         <div className={styles.metaRow}>
+          {doctor.homeVisits && (
+            <span className={styles.meta}>
+              <Home size={14} /> Home visits
+            </span>
+          )}
           {doctor.city && (
             <span className={styles.meta}>
               <MapPin size={14} /> {doctor.city}

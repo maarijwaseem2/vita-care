@@ -14,4 +14,11 @@ describe('triage knowledge retrieval', () => {
     expect(text).toMatch(/Red flags/);
     expect(text).toMatch(/Heart Care/);
   });
+
+  it('routes musculoskeletal and throat complaints to the right cards', () => {
+    expect(retrieveKnowledge('kamar mein dard hai')[0].department).toMatch(/^General Physician for new pain.*Physiotherapy if it lasts over 6 weeks/);
+    expect(retrieveKnowledge('falij ke baad chalne mein mushkil')[0].id).toBe('rehab');
+    expect(retrieveKnowledge('sore throat, pain on swallowing')[0].department).toBe('ENT');
+    expect(retrieveKnowledge('rehab after stroke, walk again')[0].id).toBe('rehab');
+  });
 });

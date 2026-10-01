@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -13,9 +14,9 @@ import { Patient } from '../patients/entities/patient.entity';
 import { UsersService } from '../users/users.service';
 import { Nurse } from '../nurses/entities/nurse.entity';
 import { RegisterNurseDto } from '../nurses/dto/nurse.dto';
-import { UserRole } from '../../common/enums';
+import { Specialty, UserRole } from '../../common/enums';
 import { RegisterPatientDto } from './dto/register-patient.dto';
-import { RegisterDoctorDto } from './dto/register-doctor.dto';
+import { AHPC_MSG, AHPC_RE, PMDC_MSG, PMDC_RE, RegisterDoctorDto } from './dto/register-doctor.dto';
 import { LoginDto } from './dto/login.dto';
 
 export interface AuthResponse {
@@ -106,6 +107,11 @@ export class AuthService {
   }
 
   async registerDoctor(dto: RegisterDoctorDto): Promise<AuthResponse> {
+    // MBBS doctors register with PMDC; physiotherapists with AHPC (AHPC Act 2022).
+    const council: 'PMDC' | 'AHPC' = dto.specialty === Specialty.PHYSIOTHERAPY ? 'AHPC' : 'PMDC';
+    const reg = dto.pmdcNumber.trim();
+    if (council === 'PMDC' && !PMDC_RE.test(reg)) throw new BadRequestException(PMDC_MSG);
+    if (council === 'AHPC' && !AHPC_RE.test(reg)) throw new BadRequestException(AHPC_MSG);
     dto.email = dto.email.trim().toLowerCase();
     await this.ensureEmailAvailable(dto.email);
     const passwordHash = await bcrypt.hash(
@@ -137,7 +143,9 @@ export class AuthService {
         opdSchedule: dto.opdSchedule,
         availableTime: dto.availableTime,
         fees: dto.fees ?? 0,
-        pmdcNumber: dto.pmdcNumber.toUpperCase(),
+        pmdcNumber: reg.toUpperCase(),
+        council,
+        homeVisits: council === 'AHPC',
         clinicName: dto.clinicName,
         experienceYears: dto.experienceYears,
         languages: dto.languages ?? [],
