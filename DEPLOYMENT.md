@@ -50,12 +50,13 @@ Create a new **Web Service** from your GitHub repo.
 | ----------------- | ------------------------------------------------- |
 | Root Directory    | `backend`                                         |
 | Runtime           | Node                                              |
-| Build Command     | `npm install && npm run build && npm run migration:run` |
+| Build Command     | `npm install --include=dev && npm run build && npm run migration:run && npm run seed` |
 | Start Command     | `npm run start:prod`                              |
 | Health Check Path | `/api/health`                                     |
 
-> The migration runs during the build. It needs `ts-node` (a devDependency), so
-> **don't** use a production-only install — the default `npm install` above is correct.
+> Render sets `NODE_ENV=production`, so a plain `npm install` skips `@nestjs/cli`
+> and `ts-node` (`nest: not found`). Always pass `--include=dev`. `backend/.npmrc`
+> also forces this. Seed is safe to re-run: existing emails are skipped.
 
 **Environment variables** (Render → Environment)
 

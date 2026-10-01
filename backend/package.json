@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "build": "nest build",
+    "build": "node node_modules/@nestjs/cli/bin/nest.js build",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",

@@ -67,15 +67,9 @@
 .bottom {
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   padding-block: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
   font-size: 0.85rem;
   color: rgba(255, 255, 255, 0.6);
 }
-.disclaimer { font-style: italic; }
 
 @media (max-width: 860px) {
   .top { grid-template-columns: 1fr 1fr; gap: 32px; }

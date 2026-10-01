@@ -75,11 +75,7 @@ export default function Footer() {
         </div>
 
         <div className={styles.bottom}>
-          <p>© {year} Vita Care. Built for the Alibaba Cloud AI Hackathon 2026.</p>
-          <p className={styles.disclaimer}>
-            AI guidance is preliminary and not a substitute for professional
-            medical advice.
-          </p>
+          <p>© {year} Vita Care. All rights reserved.</p>
         </div>
       </div>
     </footer>

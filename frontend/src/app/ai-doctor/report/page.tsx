@@ -134,12 +134,11 @@ export default function ReportPage() {
               >
                 <ImageUp size={34} />
                 <strong>Choose a photo or drop it here</strong>
-                <span>JPG, PNG or WEBP. On a phone this opens the camera.</span>
+                <span>JPG, PNG or WEBP — pick from your gallery or files.</span>
                 <input
                   ref={inputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  capture="environment"
                   onChange={(e) => pick(e.target.files?.[0])}
                   hidden
                 />
