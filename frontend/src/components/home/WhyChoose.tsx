@@ -31,10 +31,10 @@ export default function WhyChoose() {
         <div className={styles.whyGrid}>
           <div className={styles.whyArt}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/about/about-us.jpg" alt="A doctor at Vita Care with a stethoscope" />
+            <img src="/images/about/why-care.jpg" alt="A Vita Care doctor checking a patient's blood pressure" />
           </div>
           <div>
-            <span className="eyebrow">Why Vita Care</span>
+            <span className={styles.whyEyebrow}>Why Vita Care</span>
             <h2 style={{ fontSize: 'clamp(1.8rem, 3vw, 2.5rem)', color: 'var(--navy)', marginBottom: 14 }}>
               A healthcare system built around you
             </h2>

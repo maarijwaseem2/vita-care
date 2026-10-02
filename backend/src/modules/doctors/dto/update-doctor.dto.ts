@@ -1,3 +1,4 @@
+import { IsPkPhone } from '../../../common/validators/pk-phone';
 import {
   IsArray,
   IsEnum,
@@ -21,7 +22,7 @@ export class UpdateDoctorDto {
   @IsOptional() @IsEnum(Specialty) specialty?: Specialty;
   @IsOptional() @IsInt() @Min(20) @Max(100) age?: number;
   @IsOptional() @IsEnum(Gender) gender?: Gender;
-  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsPkPhone({ allowEmpty: true }) phone?: string;
   @IsOptional() @IsString() city?: string;
   @IsOptional() @IsString() address?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) qualifications?: string[];
@@ -36,4 +37,6 @@ export class UpdateDoctorDto {
   @IsOptional() @IsString() @MaxLength(200) clinicName?: string;
   @IsOptional() @IsInt() @Min(0) @Max(60) experienceYears?: number;
   @IsOptional() @IsArray() @IsString({ each: true }) languages?: string[];
+  /** Extra charge for a home visit (Rs). */
+  @IsOptional() @IsInt() @Min(0) @Max(20000) homeVisitCharge?: number;
 }

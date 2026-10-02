@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  HttpException,
+  HttpStatus,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -27,8 +29,18 @@ export interface AuthResponse {
     role: UserRole;
     profileId: number;
     name: string;
+    /** false until the email link is clicked (or Google sign-in). */
+    emailVerified?: boolean;
   };
+  /** Local development only (no Brevo key): the verification link, so testers can still verify. */
+  devVerificationUrl?: string;
 }
+
+/** 5 wrong passwords for one account within 15 minutes → that account is locked for 15 minutes. */
+const MAX_FAILED_LOGINS = 5;
+const LOCK_WINDOW_MS = 15 * 60_000;
+/** bcrypt hash of a random string, compared when the email does not exist (equal timing). */
+const DUMMY_HASH = '$2a$10$yO6JtsEqxZbm.AfiQImOv.nIC41yhm/dQ.5OnkCRJ9p3Fr8VlF4qm';
 
 @Injectable()
 export class AuthService {
@@ -167,26 +179,63 @@ export class AuthService {
 
   /** Verify credentials and return a signed token. */
   async login(dto: LoginDto): Promise<AuthResponse> {
-    const user = await this.usersService.findByEmailWithPassword(
-      dto.email.trim().toLowerCase(),
-    );
-    if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
+    const email = dto.email.trim().toLowerCase();
+    this.assertNotLocked(email);
+    const user = await this.usersService.findByEmailWithPassword(email);
 
-    const passwordMatches = await bcrypt.compare(
-      dto.password,
-      user.passwordHash,
-    );
-    if (!passwordMatches) {
+    // Always run bcrypt, so a wrong email takes as long as a wrong password
+    // (no guessing which emails are registered from the response time).
+    const passwordMatches = await bcrypt.compare(dto.password, user?.passwordHash ?? DUMMY_HASH);
+    if (!user || !passwordMatches) {
+      this.recordFailure(email);
       throw new UnauthorizedException('Invalid email or password');
     }
+    this.failures.delete(email);
     if (!user.isActive) {
       throw new UnauthorizedException('This account has been suspended. Please contact support.');
     }
 
     const { profileId, name } = await this.resolveProfile(user);
     return this.buildAuthResponse(user.id, user.email, user.role, profileId, name);
+  }
+
+  /** Sign in a user by id (used after Google sign-in). */
+  async issueFor(userId: number): Promise<AuthResponse> {
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.isActive) throw new UnauthorizedException('This account cannot sign in.');
+    const { profileId, name } = await this.resolveProfile(user);
+    const res = this.buildAuthResponse(user.id, user.email, user.role, profileId, name);
+    res.user.emailVerified = user.emailVerified;
+    return res;
+  }
+
+  // --- brute-force protection per account (on top of the per-IP rate limit) ---
+
+  /** email → failed attempts in the current window and lock expiry. */
+  private readonly failures = new Map<string, { count: number; first: number; lockedUntil: number }>();
+
+  private assertNotLocked(email: string) {
+    const f = this.failures.get(email);
+    if (f && f.lockedUntil > Date.now()) {
+      const minutes = Math.ceil((f.lockedUntil - Date.now()) / 60_000);
+      throw new HttpException(
+        `Too many failed sign-in attempts for this account. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private recordFailure(email: string) {
+    const now = Date.now();
+    const f = this.failures.get(email);
+    const fresh = !f || now - f.first > LOCK_WINDOW_MS;
+    const next = fresh ? { count: 1, first: now, lockedUntil: 0 } : { ...f!, count: f!.count + 1 };
+    if (next.count >= MAX_FAILED_LOGINS) next.lockedUntil = now + LOCK_WINDOW_MS;
+    this.failures.set(email, next);
+    if (this.failures.size > 10_000) {
+      // keep memory bounded: drop expired entries
+      for (const [k, v] of this.failures) if (now - v.first > LOCK_WINDOW_MS && v.lockedUntil < now) this.failures.delete(k);
+    }
   }
 
   // --- helpers ---
@@ -231,7 +280,11 @@ export class AuthService {
     profileId: number,
     name: string,
   ): AuthResponse {
-    const accessToken = this.jwtService.sign({ sub: userId, email, role });
+    // Admin sessions are short (12 h); everyone else uses JWT_EXPIRES_IN (default 7 days).
+    const accessToken = this.jwtService.sign(
+      { sub: userId, email, role },
+      role === UserRole.ADMIN ? { expiresIn: process.env.JWT_ADMIN_EXPIRES_IN || '12h' } : {},
+    );
     return {
       accessToken,
       user: { id: userId, email, role, profileId, name },

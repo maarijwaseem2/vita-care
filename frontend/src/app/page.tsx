@@ -4,6 +4,7 @@ import WhyChoose from '@/components/home/WhyChoose';
 import FeaturedDoctors from '@/components/home/FeaturedDoctors';
 import AiDoctorCta from '@/components/home/AiDoctorCta';
 import HomeNursingCta from '@/components/home/HomeNursingCta';
+import LabReportCta from '@/components/home/LabReportCta';
 import LatestBlog from '@/components/home/LatestBlog';
 import Newsletter from '@/components/home/Newsletter';
 
@@ -15,6 +16,7 @@ export default function HomePage() {
       <WhyChoose />
       <FeaturedDoctors />
       <AiDoctorCta />
+      <LabReportCta />
       <HomeNursingCta />
       <LatestBlog />
       <Newsletter />

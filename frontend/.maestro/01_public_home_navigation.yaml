@@ -3,7 +3,7 @@ name: 01_public_home_navigation
 tags: [smoke, public]
 ---
 - launchApp
-- assertVisible: "Know which doctor to see, before you leave home."
+- assertVisible: ".*Meet the right doctor.*"
 - tapOn: "Find a Doctor"
 - assertVisible: "Search trusted specialists"
 - tapOn: "Home Nursing"

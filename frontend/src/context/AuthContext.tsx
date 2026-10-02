@@ -18,6 +18,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<AuthUser>;
   setSession: (auth: AuthResponse) => void;
   logout: () => void;
+  /** Re-read "email verified" from the server; returns the new value. */
+  refreshVerification: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -56,6 +58,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return auth.user;
   };
 
+  const refreshVerification = async () => {
+    const me = await authApi.status();
+    const verified = !!me.emailVerified;
+    setUser((u) => {
+      if (!u) return u;
+      const next = { ...u, emailVerified: verified };
+      localStorage.setItem(USER_KEY, JSON.stringify(next));
+      return next;
+    });
+    return verified;
+  };
+
+  // A user who was unverified last time may have clicked the link since: check once on load.
+  useEffect(() => {
+    if (user && user.emailVerified === false && tokenStorage.get()) refreshVerification().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const logout = () => {
     tokenStorage.clear();
     localStorage.removeItem(USER_KEY);
@@ -63,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, setSession, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, setSession, logout, refreshVerification }}>
       {children}
     </AuthContext.Provider>
   );

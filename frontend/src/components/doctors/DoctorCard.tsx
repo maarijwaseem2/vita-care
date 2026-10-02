@@ -41,6 +41,11 @@ export default function DoctorCard({
 
       <div className={styles.body}>
         <div className={styles.metaRow}>
+          {doctor.proximity && (
+            <span className={`${styles.meta} ${styles.near}`}>
+              {doctor.proximity === 'area' ? 'Near you' : 'In your city'}
+            </span>
+          )}
           {doctor.homeVisits && (
             <span className={styles.meta}>
               <Home size={14} /> Home visits

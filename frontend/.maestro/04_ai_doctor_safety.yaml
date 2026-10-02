@@ -2,6 +2,10 @@ url: http://localhost:3000
 name: 04_ai_doctor_safety
 tags: [ai, safety]
 ---
+# The AI Doctor needs a login
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: patient@vitacare.test }
 - openLink: http://localhost:3000/ai-doctor
 - assertVisible: "AI Doctor"
 # Negated symptom must NOT raise the emergency banner

@@ -1,0 +1,8 @@
+.wrap { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+.or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 0.85rem; }
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 50px; border: 1.5px solid var(--line); border-radius: var(--radius-pill); background: #fff; color: #1f2a44; font: inherit; font-weight: 600; font-size: 1rem; cursor: pointer; }
+.btn:hover { border-color: var(--navy); }
+.btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.btn:disabled { opacity: 0.7; cursor: default; }
+.err { color: #b02a2a; font-size: 0.88rem; text-align: center; }

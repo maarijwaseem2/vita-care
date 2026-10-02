@@ -15,3 +15,5 @@ executionOrder:
     - 08_doctor_sees_vitals_and_orders_nurse
     - 09_admin_verify_nurse
     - 10_admin_publish_blog
+    - 11_register_contact_forgot
+    - 12_doctor_patient_pages

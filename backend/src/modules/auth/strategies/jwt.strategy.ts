@@ -21,6 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
+      algorithms: ['HS256'],
       secretOrKey: configService.get<string>('JWT_SECRET') || 'dev-secret',
     });
   }
@@ -32,6 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!user || !user.isActive) {
       throw new UnauthorizedException('Invalid or expired token');
     }
-    return { userId: payload.sub, email: payload.email, role: payload.role };
+    // Role and email come from the database, not the token, so a changed role applies at once.
+    return { userId: user.id, email: user.email, role: user.role, emailVerified: user.emailVerified };
   }
 }

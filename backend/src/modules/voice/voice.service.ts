@@ -133,7 +133,7 @@ export class VoiceService {
           { role: 'system', content: instruction },
           { role: 'user', content: text },
         ],
-        { temperature: 0, timeoutMs: 15_000 },
+        { temperature: 0, timeoutMs: 15_000, maxTokens: 300 },
       );
       return out.trim() || text;
     } catch {

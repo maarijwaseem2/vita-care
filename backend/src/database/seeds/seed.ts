@@ -491,14 +491,24 @@ async function run() {
       { email: 'nurse@vitacare.test', first: 'Nasreen', last: 'Akhtar', gender: 'female', city: 'Karachi', areas: ['Clifton', 'DHA', 'PECHS', 'Gulshan-e-Iqbal'], qual: 'BSN (Registered Nurse)', skills: ['injection', 'wound_care', 'vitals', 'elderly_care', 'post_op', 'sample'], fee: 2000, status: 'verified' as const },
       { email: 'nurse.pending@vitacare.test', first: 'Rizwana', last: 'Kausar', gender: 'female', city: 'Lahore', areas: ['Gulberg'], qual: 'Diploma RN', skills: ['injection', 'vitals'], fee: 1500, status: 'pending' as const },
     ];
+    // 24 distinct names (an earlier formula repeated "Nasreen Akhtar").
+    const UNIQUE_NURSES: [string, string, 'female' | 'male'][] = [
+      ['Shazia', 'Parveen', 'female'], ['Rukhsana', 'Bibi', 'female'], ['Samina', 'Masih', 'female'], ['Waseem', 'Gill', 'male'],
+      ['Farzana', 'Khan', 'female'], ['Tahira', 'Iqbal', 'female'], ['Nazia', 'Rehman', 'female'], ['Tanveer', 'Bashir', 'male'],
+      ['Sumaira', 'Yousaf', 'female'], ['Robina', 'Anwar', 'female'], ['Shabana', 'Sadiq', 'female'], ['Nadeem', 'Akhtar', 'male'],
+      ['Asma', 'Gill', 'female'], ['Fouzia', 'Masih', 'female'], ['Mariam', 'Joseph', 'female'], ['Shahzad', 'Bibi', 'male'],
+      ['Sadia', 'Hameed', 'female'], ['Kanwal', 'Riaz', 'female'], ['Erum', 'Nawaz', 'female'], ['Asad', 'Parvez', 'male'],
+      ['Mehreen', 'Aslam', 'female'], ['Zarina', 'Qadir', 'female'], ['Hafsa', 'Latif', 'female'], ['Imran', 'Shakeel', 'male'],
+    ];
     for (let i = 0; i < 24; i++) {
-      const female = i % 4 !== 3;
+      const [first, last, gender] = UNIQUE_NURSES[i];
+      const female = gender === 'female';
       const [city, areas] = CITIES[i % CITIES.length];
       nurseSeeds.push({
         email: `nurse.${i + 1}@vitacare.test`,
-        first: female ? NURSE_FIRST_F[i % NURSE_FIRST_F.length] : NURSE_FIRST_M[i % NURSE_FIRST_M.length],
-        last: NURSE_LAST[(i * 5) % NURSE_LAST.length],
-        gender: female ? 'female' : 'male',
+        first,
+        last,
+        gender,
         city,
         areas: [...areas],
         qual: female && i % 6 === 3 ? 'Midwife' : QUALS[i % QUALS.length],
@@ -507,6 +517,47 @@ async function run() {
         status: 'verified' as const,
       });
     }
+    // More nurses in the big cities so every service has several options (not one name everywhere).
+    const MORE_NAMES: [string, string, 'female' | 'male'][] = [
+      ['Sana', 'Javed', 'female'], ['Mehwish', 'Gill', 'female'], ['Saba', 'Masih', 'female'], ['Rubina', 'Yousaf', 'female'],
+      ['Naila', 'Shahzad', 'female'], ['Iram', 'Fatima', 'female'], ['Kiran', 'Joseph', 'female'], ['Huma', 'Tariq', 'female'],
+      ['Uzma', 'Pervaiz', 'female'], ['Saima', 'Arif', 'female'], ['Farhat', 'Naz', 'female'], ['Lubna', 'Riaz', 'female'],
+      ['Amna', 'Sadiq', 'female'], ['Sobia', 'Saleem', 'female'], ['Asif', 'Masih', 'male'], ['Kamran', 'Gill', 'male'],
+      ['Zubair', 'Ahmed', 'male'], ['Nadia', 'Bashir', 'female'], ['Hina', 'Akram', 'female'], ['Rabia', 'Shafiq', 'female'],
+      ['Ayesha', 'Noor', 'female'], ['Shumaila', 'Khan', 'female'], ['Faisal', 'Masih', 'male'], ['Maria', 'Sharif', 'female'],
+      ['Tahmina', 'Ali', 'female'], ['Bushra', 'Anjum', 'female'], ['Imran', 'Bhatti', 'male'], ['Shabnam', 'Iqbal', 'female'],
+    ];
+    const BIG = [
+      ['Karachi', ['Gulshan-e-Iqbal', 'North Nazimabad', 'Clifton', 'DHA', 'Malir', 'Korangi']],
+      ['Lahore', ['Johar Town', 'Model Town', 'Gulberg', 'Iqbal Town', 'Cantt']],
+      ['Islamabad', ['G-11', 'F-10', 'I-10', 'Bahria Town']],
+      ['Rawalpindi', ['Satellite Town', 'Chaklala', 'Westridge']],
+      ['Peshawar', ['Hayatabad', 'Gulbahar']],
+      ['Faisalabad', ['Madina Town', 'D Ground']],
+      ['Multan', ['Gulgasht', 'Shah Rukn-e-Alam']],
+    ] as const;
+    const ALL_SKILLS = [
+      ['mother_baby', 'vitals', 'injection'],
+      ['injection', 'wound_care', 'sample', 'vitals'],
+      ['elderly_care', 'catheter', 'vitals'],
+      ['post_op', 'wound_care', 'injection'],
+      ['mother_baby', 'injection', 'sample'],
+      ['vitals', 'elderly_care', 'injection', 'wound_care'],
+      ['catheter', 'post_op', 'vitals'],
+    ];
+    MORE_NAMES.forEach(([first, last, gender], i) => {
+      const [city, areas] = BIG[i % BIG.length];
+      nurseSeeds.push({
+        email: `nurse.${city.toLowerCase()}.${first.toLowerCase()}@vitacare.test`,
+        first, last, gender, city,
+        areas: [areas[i % areas.length], areas[(i + 1) % areas.length]],
+        qual: gender === 'female' && i % 5 === 0 ? 'Midwife' : QUALS[(i + 2) % QUALS.length],
+        skills: ALL_SKILLS[i % ALL_SKILLS.length],
+        fee: 1300 + ((i * 7) % 6) * 250,
+        status: 'verified' as const,
+      });
+    });
+
     let nAdded = 0;
     for (const [i, n] of nurseSeeds.entries()) {
       if (await ds.getRepository(User).findOne({ where: { email: n.email } })) continue;
@@ -517,7 +568,7 @@ async function run() {
           phone: `+92 3${(i % 4) + 1}${i % 10} ${String(2000000 + i * 7919).slice(0, 7)}`,
           city: n.city, areas: n.areas, qualification: n.qual, pncNumber: `PNC-${String(20000 + i * 131)}`,
           skills: n.skills, experienceYears: 3 + (i % 12), visitFee: n.fee,
-          availableDays: i % 2 ? 'Mon – Sat' : 'Daily', rating: Math.round((4.3 + (i % 7) / 10) * 10) / 10,
+          availableDays: i % 2 ? 'Mon – Sat' : 'Daily', rating: n.email === 'nurse@vitacare.test' ? 4.5 : Math.round((4.3 + (i % 7) / 10) * 10) / 10,
           bio: `${n.qual.split(' (')[0]} providing home visits in ${n.city}.`,
           verificationStatus: n.status, verifiedAt: n.status === 'verified' ? new Date() : null,
         }),
@@ -525,6 +576,13 @@ async function run() {
       nAdded++;
     }
     if (nAdded) console.log(`  + ${nAdded} nurses (1 pending verification)`);
+    for (const [i, [first, last, gender]] of UNIQUE_NURSES.entries()) {
+      await ds.query(
+        `UPDATE nurses SET first_name = $1, last_name = $2, gender = $3
+          WHERE user_id = (SELECT id FROM users WHERE email = $4) AND (first_name <> $1 OR last_name <> $2)`,
+        [first, last, gender, `nurse.${i + 1}@vitacare.test`],
+      );
+    }
 
     // Sample visits for the demo patient (Karachi)
     const demo = await ds.getRepository(Patient).findOne({ where: { user: { email: 'patient@vitacare.test' } }, relations: { user: true } });

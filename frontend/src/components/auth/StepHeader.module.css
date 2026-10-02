@@ -1,0 +1,7 @@
+.steps { list-style: none; display: flex; gap: 10px; padding: 0; margin: 4px 0 18px; }
+.steps li { flex: 1; display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600; font-size: 0.9rem; padding-bottom: 8px; border-bottom: 3px solid var(--line); transition: color .2s ease, border-color .2s ease; }
+.dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-3); font-size: 0.8rem; flex-shrink: 0; transition: background .2s ease, color .2s ease; }
+.now { color: var(--navy); border-color: var(--navy); }
+.now .dot { background: var(--navy); color: #fff; }
+.done { color: #1d7a34; border-color: #1d7a34; }
+.done .dot { background: #1d7a34; color: #fff; }

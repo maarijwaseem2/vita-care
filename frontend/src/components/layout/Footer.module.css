@@ -79,3 +79,5 @@
   .top { grid-template-columns: 1fr; }
   .bottom { flex-direction: column; align-items: flex-start; }
 }
+.contact a { display: inline-flex; align-items: center; gap: 8px; color: inherit; transition: color 0.15s ease; }
+.contact a:hover { color: #7fe3f2; }

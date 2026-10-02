@@ -19,6 +19,8 @@ AI via any OpenAI-compatible API (**OpenAI** or **Alibaba Qwen**) · voice via O
 - **Physiotherapists register with AHPC** (not PMDC); council badge next to every doctor's name.
 - **X-ray / CT / MRI photos** are described, never diagnosed; patients are sent to a radiologist.
 - **Home visits with GPS location** for nurses and physiotherapists (shared only after acceptance; never on the public receipt).
+- **Email verification (Brevo) and "Continue with Google" (Firebase)**: the AI opens only after the email is confirmed. Setup: [`docs/SETUP-EMAIL-GOOGLE.md`](docs/SETUP-EMAIL-GOOGLE.md).
+- **AI needs a login, with a daily allowance per user** (40 messages, 5 reports/scans, 40 voice; admins unlimited; set in `.env`). Emergencies are still answered after the limit, using rules only.
 - Bigger dropdowns, real About photo, AI provider/model no longer shown.
 
 Full details and the comparison with other platforms: [`docs/WORK-SUMMARY.md`](docs/WORK-SUMMARY.md).
@@ -73,6 +75,8 @@ AI_BASE_URL=https://api.openai.com/v1
 AI_MODEL=gpt-4o-mini
 AI_VISION_MODEL=gpt-4o-mini
 ```
+Daily AI limits per user: `AI_DAILY_MESSAGES=40`, `AI_DAILY_REPORTS=5`, `AI_DAILY_VOICE=40` (admins are unlimited).
+
 To run the chat on **Alibaba Qwen** instead, set `AI_BASE_URL=https://dashscope-intl.aliyuncs.com/compatible-mode/v1`,
 `AI_MODEL=qwen-plus`, `AI_VISION_MODEL=qwen-vl-max`, and put your OpenAI key in `OPENAI_API_KEY` for voice
 (Qwen's speech models do not support Urdu). With **no key**, the AI Doctor runs in a labelled offline mode.
@@ -126,7 +130,7 @@ sugar < 54 mg/dL, …) and alerts the nurse, the patient and the treating doctor
 ```bash
 cd backend
 npm test                 # 126 unit tests (safety guard, departments, OTC medicines, vitals, schedule, parsing)
-npm run test:e2e         # 96 API tests on the real database, incl. a 13-case RBAC matrix
+npm run test:e2e         # 110 API tests on the real database, incl. RBAC, AI limits, email verification, Google sign-in
 npm run eval             # 119-case evaluation: emergencies, trap cases, department routing
 
 cd ../frontend

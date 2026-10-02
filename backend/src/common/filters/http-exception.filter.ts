@@ -1,3 +1,4 @@
+import { ThrottlerException } from '@nestjs/throttler';
 import {
   ArgumentsHost,
   Catch,
@@ -51,7 +52,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let message: string | string[] = 'Internal server error';
     let error = 'Internal Server Error';
 
-    if (status === HttpStatus.TOO_MANY_REQUESTS) {
+    // Short-window rate limiter → generic text; our own 429s (daily AI limit) keep their message.
+    if (status === HttpStatus.TOO_MANY_REQUESTS && exception instanceof ThrottlerException) {
       message = 'Too many requests. Please wait a minute and try again.';
       error = 'Too Many Requests';
     } else if (exception instanceof HttpException) {

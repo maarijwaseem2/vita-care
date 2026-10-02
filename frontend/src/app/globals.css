@@ -393,3 +393,28 @@ ul {
 }
 .select option { font-size: 1rem; padding: 10px; }
 .input { min-height: 50px; font-size: 1rem; }
+
+.field-error { display: block; color: #b02a2a; font-size: 0.85rem; margin-top: 6px; font-weight: 500; }
+.input[aria-invalid='true'] { border-color: #e08a8a; }
+
+/* Sign-in extras */
+.forgot-link { display: inline-block; margin-top: 8px; font-size: 0.9rem; font-weight: 600; color: var(--blue); }
+.forgot-link:hover { text-decoration: underline; }
+.auth-alt { text-align: center; color: var(--muted); margin-top: 18px; font-size: 0.92rem; }
+
+/* Gentle interactivity everywhere (respects reduced-motion) */
+.btn { transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease; }
+.btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(40, 55, 121, 0.18); }
+.btn:active:not(:disabled) { transform: translateY(0); }
+.card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease; }
+.card-hover:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); border-color: var(--cyan); }
+.section-head { animation: fadeUp 0.6s ease both; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .btn, .card-hover, .section-head { transition: none; animation: none; }
+  .btn:hover:not(:disabled), .card-hover:hover { transform: none; }
+}
+.auth-foot { text-align: center; color: var(--muted); margin-top: 18px; font-size: 0.92rem; line-height: 1.9; }
+.auth-foot a { color: var(--blue); font-weight: 700; }
+/* Elements hidden by the multi-step forms stay hidden even if a class sets display. */
+[hidden] { display: none !important; }

@@ -1,0 +1,6 @@
+.page { max-width: 1040px; margin: 0 auto; padding: 48px 20px 72px; }
+.head { text-align: center; margin-bottom: 28px; }
+.head h1 { font-size: clamp(1.6rem, 3.4vw, 2.3rem); color: var(--navy); }
+.head p { color: var(--body); margin-top: 8px; font-size: 1.05rem; }
+.foot { text-align: center; margin-top: 26px; color: var(--muted); }
+.foot a { color: var(--blue); font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }

@@ -10,12 +10,15 @@ import { useAuth } from '@/context/AuthContext';
 import styles from './Navbar.module.css';
 import Logo from '@/components/brand/Logo';
 
+/** patientOnly links are tools for patients; doctors, nurses and admins do not see them. */
 const NAV_LINKS = [
   { href: '/', label: 'Home' },
   { href: '/doctors', label: 'Find a Doctor' },
-  { href: '/ai-doctor', label: 'AI Doctor' },
-  { href: '/home-care', label: 'Home Nursing' },
+  { href: '/ai-doctor', label: 'AI Doctor', patientOnly: true },
+  { href: '/ai-doctor/report', label: 'Lab Reports', patientOnly: true },
+  { href: '/home-care', label: 'Home Nursing', patientOnly: true },
   { href: '/blog', label: 'Blog' },
+  { href: '/contact', label: 'Contact' },
 ];
 
 export default function Navbar() {
@@ -55,7 +58,7 @@ export default function Navbar() {
 
         <nav className={`${styles.nav} ${open ? styles.navOpen : ''}`}>
           <ul className={styles.links}>
-            {NAV_LINKS.map((link) => (
+            {NAV_LINKS.filter((l) => !l.patientOnly || !user || user.role === 'patient').map((link) => (
               <li key={link.href}>
                 <Link
                   href={link.href}
@@ -87,7 +90,7 @@ export default function Navbar() {
                 <Link href="/login" className="btn btn-ghost btn-sm">
                   Sign In
                 </Link>
-                <Link href="/register/patient" className="btn btn-sm">
+                <Link href="/register" className="btn btn-sm">
                   Register
                 </Link>
               </>

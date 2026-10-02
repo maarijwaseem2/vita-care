@@ -27,6 +27,7 @@ async function run() {
   await q(`DELETE FROM home_care_requests WHERE notes ILIKE 'maestro%' OR notes ILIKE 'browser test%'`);
   await q(`DELETE FROM blog_posts WHERE slug LIKE 'maestro-%' OR slug LIKE 'browser-test-%'`);
   await q(`DELETE FROM appointments WHERE patient_name = 'Maestro Tester' OR reason ILIKE 'browser test%' OR reason ILIKE 'e2e%'`);
+  await q(`DELETE FROM contact_messages WHERE message ILIKE 'browser test%' OR message ILIKE 'maestro%' OR email LIKE 'e2e%'`);
   await ds.destroy();
   console.log('Demo reset complete.');
 }

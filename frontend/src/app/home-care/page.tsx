@@ -1,5 +1,6 @@
 'use client';
 
+import PatientOnly from '@/components/auth/PatientOnly';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -68,6 +69,7 @@ export default function HomeCarePage() {
     }
   };
 
+  if (user && user.role !== 'patient') return <PatientOnly role={user!.role} what="Home nursing" />;
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
@@ -135,6 +137,11 @@ export default function HomeCarePage() {
                     <select id="win" className="select" value={form.timeWindow} onChange={(e) => set('timeWindow', e.target.value)}>
                       {WINDOWS.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
                     </select>
+                    {WINDOWS.find((w) => w.id === form.timeWindow)?.shift && (
+                      <span className={styles.hint}>
+                        A 12-hour duty usually costs about 4–6 single visits. The nurse confirms the price when accepting.
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="field-row">

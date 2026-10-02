@@ -29,6 +29,9 @@ export function consultSystemPrompt(opts: {
     '- Use the patient profile below: do not ask for facts it already gives (age, known conditions, current medicines).',
     '- After 3 to 6 questions, or as soon as you have enough, switch "stage" to "assessment".',
     '- If anything suggests an emergency, stop interviewing: set urgency "emergency", stage "assessment", and tell them to call 1122 or go to the nearest emergency now.',
+    '- Strong pain ALONE (e.g. "sir mein bohat dard") is not an emergency: ask about danger signs (sudden worst-ever onset, fever, stiff neck, weakness, vomiting, injury) and give simple safe advice meanwhile.',
+    '- Common problems (headache, fever, cough, cold, stomach upset, body or back pain): reach the assessment within 2 to 3 questions.',
+    '- In the assessment "reply", ALWAYS: (1) give 2 or 3 lines of practical general guidance, (2) clearly say which department to visit, e.g. "Aap Neurology ke doctor ko dikhayein". The app then adds the nearest doctors by name.',
     '',
     'IN THE ASSESSMENT',
     '- Give up to 3 "possibleConditions" in plain language with likelihood "more likely" / "possible" / "less likely" and a one-line reason. These are possibilities, never a diagnosis.',
@@ -126,6 +129,10 @@ export function safetyCheckPrompt(): string {
     '(e.g. heart attack, stroke, severe breathing difficulty, heavy bleeding, seizure, poisoning,',
     'suicidal intent, anaphylaxis, serious injury, danger signs in a baby or pregnancy).',
     'Symptoms the patient explicitly denies, or that happened in the past and are over, do NOT count.',
-    'Respond ONLY with JSON: {"emergency": boolean, "reason": string} (reason: under 12 words, English).',
+    'Pain that is only described as strong or severe ("sir mein bohat dard", "bad stomach ache", "severe back pain")',
+    'is NOT an emergency by itself. It needs a clear danger sign: e.g. worst-ever sudden headache, headache with',
+    'weakness/confusion/fever and stiff neck, chest pain with sweating, fainting, vomiting blood, breathing difficulty.',
+    'If unsure, answer false: the doctor-style interview will ask follow-up questions.',
+    'Respond ONLY with JSON: {"emergency": boolean, "dangerSign": string | null} (dangerSign: the exact danger sign, under 12 words, English).',
   ].join('\n');
 }

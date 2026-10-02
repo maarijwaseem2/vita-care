@@ -1,3 +1,4 @@
+import { IsPkPhone } from '../../../common/validators/pk-phone';
 import {
   IsDateString,
   IsInt,
@@ -23,7 +24,7 @@ export class CreateAppointmentDto {
   patientName: string;
 
   @IsString()
-  @Matches(/^[0-9+\-\s()]{7,20}$/, { message: 'A valid phone number is required' })
+  @IsPkPhone()
   patientPhone: string;
 
   @IsDateString({ strict: true }, { message: 'Date must be valid (YYYY-MM-DD)' })

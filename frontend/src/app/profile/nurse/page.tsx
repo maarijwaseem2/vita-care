@@ -13,7 +13,7 @@ import { formatDay } from '@/lib/dates';
 import { formatVitals, homeCareApi, mapsLink, NurseProfile, NurseVisit, nursesApi, serviceLabel, Vitals } from '@/lib/nurse';
 import styles from './nurse.module.css';
 
-const WINDOW: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening' };
+const WINDOW: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', day_shift: '12-hour day duty', night_shift: '12-hour night duty' };
 
 export default function NurseDashboard() {
   const { user, loading } = useAuth();

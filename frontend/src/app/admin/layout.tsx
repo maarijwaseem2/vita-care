@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
   BadgeCheck,
+  Inbox,
   HeartHandshake,
   ShieldAlert,
   Users,
@@ -29,6 +30,7 @@ const NAV = [
   { href: '/admin/safety', label: 'AI safety monitor', icon: ShieldAlert },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/blog', label: 'Blog', icon: Newspaper },
+  { href: '/admin/messages', label: 'Messages', icon: Inbox },
   { href: '/admin/audit', label: 'Audit log', icon: ScrollText },
 ];
 

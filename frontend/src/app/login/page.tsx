@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { homeFor } from '@/lib/roles';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { LogIn } from 'lucide-react';
+import GoogleButton from '@/components/auth/GoogleButton';
+import RoleCards from '@/components/auth/RoleCards';
 import { useAuth } from '@/context/AuthContext';
 import { getErrorMessage } from '@/lib/api';
 
@@ -74,19 +76,16 @@ function LoginForm() {
             placeholder="••••••••"
             required
           />
+          <Link href="/forgot-password" className="forgot-link">Forgot password?</Link>
         </div>
         <button id="loginSubmit" type="submit" className="btn btn-block btn-lg" disabled={submitting}>
           {submitting ? <span className="spinner" /> : <><LogIn size={18} /> Sign In</>}
         </button>
       </form>
+      <GoogleButton redirect={redirect} />
 
-      <p className="auth-switch">
-        Don&apos;t have an account?{' '}
-        <Link href="/register/patient">Register as a patient</Link>
-      </p>
-      <p className="auth-switch" style={{ marginTop: 6 }}>
-        Doctor or nurse? <Link href="/register/doctor">Join as a doctor</Link> · <Link href="/register/nurse">Join as a nurse</Link>
-      </p>
+      <p className="auth-alt">New to Vita Care? Create a free account:</p>
+        <RoleCards compact />
     </div>
   );
 }

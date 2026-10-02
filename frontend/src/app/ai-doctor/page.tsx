@@ -1,5 +1,6 @@
 'use client';
 
+import PatientOnly from '@/components/auth/PatientOnly';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -19,6 +20,9 @@ import {
   WifiOff,
 } from 'lucide-react';
 import DoctorCard from '@/components/doctors/DoctorCard';
+import AiLoginGate from '@/components/ai/AiLoginGate';
+import VerifyEmailGate from '@/components/ai/VerifyEmailGate';
+import Loader from '@/components/ui/Loader';
 import { chatbotApi, getErrorMessage, voiceApi } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import type { AiStatus, ChatLanguage, ChatMessage, ConsultResult, Urgency } from '@/lib/types';
@@ -70,7 +74,8 @@ const hasUrdu = (t: string) => /[\u0600-\u06FF]/.test(t);
 const urAttr = (t: string) => (hasUrdu(t) ? 'ur' : undefined);
 
 export default function AiDoctorPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading, refreshVerification } = useAuth();
+  const [usageLeft, setUsageLeft] = useState<number | null>(null);
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [lang, setLang] = useState<LangChoice>('auto');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -93,6 +98,14 @@ export default function AiDoctorPage() {
   const recognitionRef = useRef<any>(null);
 
   const effectiveLang: ChatLanguage = lang === 'auto' ? result?.language ?? 'en' : lang;
+
+  useEffect(() => {
+    if (!user) return;
+    chatbotApi
+      .usage()
+      .then((u) => setUsageLeft(u.message.remaining))
+      .catch(() => setUsageLeft(null));
+  }, [user]);
 
   useEffect(() => {
     chatbotApi.status().then(setStatus).catch(() => setStatus(null));
@@ -131,6 +144,7 @@ export default function AiDoctorPage() {
         });
         setResult(res);
         setSessionToken(res.sessionToken);
+        if (res.usage && res.usage.remaining != null) setUsageLeft(res.usage.remaining);
         setMessages((prev) => {
           const out: ChatMessage[] = [...prev, { role: 'assistant', content: res.reply }];
           // Spoken question → spoken answer, so the whole turn can happen by voice.
@@ -142,6 +156,7 @@ export default function AiDoctorPage() {
         });
       } catch (err) {
         setError(getErrorMessage(err));
+        if (/confirm your email/i.test(getErrorMessage(err))) refreshVerification().catch(() => undefined);
         setMessages((prev) => prev.slice(0, -1));
         setInput(content);
       } finally {
@@ -276,6 +291,12 @@ export default function AiDoctorPage() {
   const bookHref = (doctorId: number) =>
     `/appointments/${doctorId}${sessionToken ? `?triage=${sessionToken}` : ''}`;
 
+  // The AI needs an account: fair daily use per person, and no wasted tokens.
+  if (authLoading) return <Loader label="Loading…" />;
+  if (!user) return <AiLoginGate redirect="/ai-doctor" title="Sign in to talk to the AI Doctor" />;
+  if (user.emailVerified === false && user.role !== 'admin') return <VerifyEmailGate />;
+
+  if (user.role === 'doctor' || user.role === 'nurse') return <PatientOnly role={user!.role} what="The AI Doctor" />;
   return (
     <div className={styles.page}>
       <div className="container">
@@ -414,6 +435,11 @@ export default function AiDoctorPage() {
             </div>
 
             {error && <div className={`form-error ${styles.error}`}>{error}</div>}
+            {usageLeft != null && (
+              <p className={styles.usageNote}>
+                {usageLeft > 0 ? `${usageLeft} AI messages left today` : 'No AI messages left today. The limit resets at midnight.'}
+              </p>
+            )}
 
             <form
               className={styles.inputBar}

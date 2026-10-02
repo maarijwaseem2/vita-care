@@ -1,4 +1,8 @@
 import {
+  BadRequestException,
+  Post,
+  UploadedFile,
+  UseInterceptors,
   Body,
   Controller,
   Get,
@@ -8,6 +12,11 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { randomUUID } from 'crypto';
+import { UPLOAD_DIR } from '../../config/uploads';
 import { DoctorsService } from './doctors.service';
 import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { QueryDoctorsDto } from './dto/query-doctors.dto';
@@ -41,6 +50,28 @@ export class DoctorsController {
   @Get('me/profile')
   myProfile(@CurrentUser() user: AuthUser) {
     return this.doctorsService.findByUserId(user.userId);
+  }
+
+  /** POST /doctors/me/photo — the signed-in doctor uploads a profile photo (JPG/PNG/WEBP, max 2 MB). */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.DOCTOR)
+  @Post('me/photo')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: UPLOAD_DIR,
+        filename: (_req, file, cb) => cb(null, `doctor-${randomUUID()}${extname(file.originalname).toLowerCase() || '.jpg'}`),
+      }),
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) =>
+        ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)
+          ? cb(null, true)
+          : cb(new BadRequestException('Only JPG, PNG or WEBP photos are allowed'), false),
+    }),
+  )
+  async uploadPhoto(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: AuthUser) {
+    if (!file) throw new BadRequestException('Choose a photo to upload');
+    return this.doctorsService.setPhoto(user.userId, `/uploads/${file.filename}`);
   }
 
   @Get(':id')

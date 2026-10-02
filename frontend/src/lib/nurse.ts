@@ -17,11 +17,15 @@ export const SERVICES: { id: ServiceId; label: string; urdu: string }[] = [
 export const serviceLabel = (id: string) => SERVICES.find((s) => s.id === id)?.label ?? id;
 
 export const QUALIFICATIONS = ['BSN (Registered Nurse)', 'Diploma RN', 'Post-RN BSN', 'Midwife', 'Lady Health Visitor (LHV)', 'Licensed Practical Nurse'];
+/** Single visits (about 1 hour) or full 12-hour duties, as home-care nurses usually work. */
 export const WINDOWS = [
-  { id: 'morning', label: 'Morning (8–12)' },
-  { id: 'afternoon', label: 'Afternoon (12–4)' },
-  { id: 'evening', label: 'Evening (4–8)' },
+  { id: 'morning', label: 'Single visit · Morning (8 AM–12 PM)', shift: false },
+  { id: 'afternoon', label: 'Single visit · Afternoon (12–4 PM)', shift: false },
+  { id: 'evening', label: 'Single visit · Evening (4–8 PM)', shift: false },
+  { id: 'day_shift', label: '12-hour day duty (8 AM–8 PM)', shift: true },
+  { id: 'night_shift', label: '12-hour night duty (8 PM–8 AM)', shift: true },
 ];
+export const windowLabel = (id: string) => WINDOWS.find((w) => w.id === id)?.label ?? id;
 
 export interface Vitals {
   bpSystolic?: number | null;

@@ -2,6 +2,10 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
+import { DoctorsService } from '../src/modules/doctors/doctors.service';
+import { FirebaseVerifier } from '../src/modules/auth/google-auth.service';
+import { JwtService } from '@nestjs/jwt';
+import { UsageService } from '../src/modules/chatbot/usage.service';
 
 // Force the offline AI engine and disable rate limits for a deterministic run.
 process.env.AI_API_KEY = '';
@@ -30,6 +34,7 @@ describe('Vita Care API (e2e)', () => {
   const password = 'Password123';
 
   let newPatientToken = '';
+  let newPatientVerifyUrl = '';
   let demoPatientToken = '';
   let doctorToken = '';
   let otherDoctorToken = '';
@@ -83,7 +88,9 @@ describe('Vita Care API (e2e)', () => {
              AND transcript::text LIKE '%e2e%')`,
     );
     await ds.query(`DELETE FROM home_care_requests WHERE notes LIKE 'e2e%'`);
+    await ds.query(`DELETE FROM contact_messages WHERE email LIKE 'e2e%'`);
     await ds.query(`DELETE FROM users WHERE email LIKE 'e2e\\_%'`);
+    await ds.query(`DELETE FROM users WHERE email LIKE 'e2e\\_google\\_%'`);
     await app.close();
   });
 
@@ -239,12 +246,13 @@ describe('Vita Care API (e2e)', () => {
       expect(res.body.user.role).toBe('patient');
       expect(res.body.user.email).toBe(newPatientEmail);
       newPatientToken = res.body.accessToken;
+      newPatientVerifyUrl = res.body.devVerificationUrl;
     });
 
     it('POST /api/auth/register/patient (same email) → 409 conflict', async () => {
       const res = await request(http)
         .post('/api/auth/register/patient')
-        .send({
+        .send({ phone: '03001234567', city: 'Karachi',
           email: newPatientEmail,
           password,
           firstName: 'Dup',
@@ -256,7 +264,7 @@ describe('Vita Care API (e2e)', () => {
     it('POST /api/auth/register/patient (invalid body) → 400', async () => {
       const res = await request(http)
         .post('/api/auth/register/patient')
-        .send({ email: 'not-an-email', password: '123' }); // bad email + short pw + missing names
+        .send({ phone: '03001234567', city: 'Karachi', email: 'not-an-email', password: '123' }); // bad email + short pw + missing names
       expect(res.status).toBe(400);
     });
 
@@ -386,6 +394,9 @@ describe('Vita Care API (e2e)', () => {
     });
 
     it('AI consult → booking with the AI summary attached (logged-in patient)', async () => {
+      // New accounts confirm their email before using the AI.
+      const token = new URL(newPatientVerifyUrl).searchParams.get('token');
+      expect((await request(http).post('/api/auth/verify-email').send({ token })).status).toBe(200);
       const consult = await request(http)
         .post('/api/chatbot/consult')
         .set('Authorization', `Bearer ${newPatientToken}`)
@@ -534,8 +545,45 @@ describe('Vita Care API (e2e)', () => {
   // AI Doctor (runs on the offline engine here, so it is deterministic)
   // ---------------------------------------------------------------------------
   describe('AI Doctor', () => {
+    let aiToken = '';
+    beforeAll(async () => {
+      aiToken = await login('patient@vitacare.test');
+    });
     const consult = (content: string) =>
-      request(http).post('/api/chatbot/consult').send({ messages: [{ role: 'user', content }] });
+      request(http)
+        .post('/api/chatbot/consult')
+        .set('Authorization', `Bearer ${aiToken}`)
+        .send({ messages: [{ role: 'user', content }] });
+
+    it('AI chat, reports and voice need a login (401 for guests)', async () => {
+      const body = { messages: [{ role: 'user', content: 'I have a headache' }] };
+      expect((await request(http).post('/api/chatbot/consult').send(body)).status).toBe(401);
+      expect((await request(http).post('/api/chatbot/report').send({ imageBase64: 'A'.repeat(200), mimeType: 'image/png' })).status).toBe(401);
+      expect((await request(http).post('/api/voice/speak').send({ text: 'hello' })).status).toBe(401);
+    });
+
+    it('GET /api/chatbot/usage → today\'s allowance for the signed-in user', async () => {
+      const res = await request(http).get('/api/chatbot/usage').set('Authorization', `Bearer ${aiToken}`);
+      expect(res.status).toBe(200);
+      expect(res.body.message.limit).toBe(40);
+      expect(res.body.report.limit).toBe(5);
+    });
+
+    it('the daily limit is enforced atomically; admins are unlimited', async () => {
+      const usage = app.get(UsageService);
+      const reg = await request(http).post('/api/auth/register/patient').send({ phone: '03001234567', city: 'Karachi',
+        email: `e2e_quota_${stamp}@vitacare.test`, password, firstName: 'Quota', lastName: 'Test',
+      });
+      const user = { userId: reg.body.user.id, email: reg.body.user.email, role: 'patient' } as any;
+      // 5 reports allowed: fire 7 at once, exactly 5 must succeed.
+      const results = await Promise.allSettled(Array.from({ length: 7 }, () => usage.consume(user, 'report')));
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(5);
+      const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+      expect(rejected.reason.getStatus()).toBe(429);
+      expect(rejected.reason.message).toMatch(/today's 5/);
+      const admin = await usage.consume({ userId: 1, email: 'a', role: 'admin' } as any, 'report');
+      expect(admin.limit).toBeNull();
+    });
 
     it('GET /api/chatbot/status → reports which engine is live', async () => {
       const res = await request(http).get('/api/chatbot/status');
@@ -574,6 +622,7 @@ describe('Vita Care API (e2e)', () => {
     it('POST /api/chatbot/report → clear 503 when the vision model is not configured', async () => {
       const res = await request(http)
         .post('/api/chatbot/report')
+        .set('Authorization', `Bearer ${aiToken}`)
         .send({ imageBase64: 'A'.repeat(200), mimeType: 'image/png' });
       expect(res.status).toBe(503);
     });
@@ -657,7 +706,7 @@ describe('Vita Care API (e2e)', () => {
         specialty: 'ENT', city: 'Karachi',
       };
       expect((await request(http).post('/api/auth/register/doctor').send(base)).status).toBe(400);
-      const res = await request(http).post('/api/auth/register/doctor').send({ ...base, pmdcNumber: '12345-p' });
+      const res = await request(http).post('/api/auth/register/doctor').send({ phone: '03001234567', ...base, pmdcNumber: '12345-p' });
       expect(res.status).toBe(201);
       const pub = await request(http).get('/api/doctors').query({ search: 'Test Doctor' });
       expect(pub.body).toHaveLength(0);
@@ -775,7 +824,7 @@ describe('Vita Care API (e2e)', () => {
         city: 'Karachi', qualification: 'Diploma RN', skills: ['injection'], visitFee: 1500,
       };
       expect((await request(http).post('/api/auth/register/nurse').send(base)).status).toBe(400);
-      const res = await request(http).post('/api/auth/register/nurse').send({ ...base, pncNumber: 'PNC-99881' });
+      const res = await request(http).post('/api/auth/register/nurse').send({ phone: '03001234567', ...base, pncNumber: 'PNC-99881' });
       expect(res.status).toBe(201);
       expect(res.body.user.role).toBe('nurse');
       pendingNurseToken = res.body.accessToken;
@@ -818,7 +867,7 @@ describe('Vita Care API (e2e)', () => {
     });
 
     it('another patient cannot cancel it', async () => {
-      const other = await request(http).post('/api/auth/register/patient').send({
+      const other = await request(http).post('/api/auth/register/patient').send({ phone: '03001234567', city: 'Karachi',
         email: `e2e_other_${stamp}@vitacare.test`, password, firstName: 'Other', lastName: 'Patient',
       });
       const res = await request(http).patch(`/api/home-care/${requestId}/cancel`).set(as(other.body.accessToken));
@@ -909,11 +958,11 @@ describe('Vita Care API (e2e)', () => {
     it('registration checks PMDC for doctors and AHPC for physiotherapists', async () => {
       const base = { password, firstName: 'Reg', lastName: 'Check', city: 'Karachi' };
       const wrongPmdc = await request(http).post('/api/auth/register/doctor')
-        .send({ ...base, email: `e2e_pm_${stamp}@vitacare.test`, specialty: 'ENT', pmdcNumber: 'AHPC-PT-1234' });
+        .send({ phone: '03001234567', ...base, email: `e2e_pm_${stamp}@vitacare.test`, specialty: 'ENT', pmdcNumber: 'AHPC-PT-1234' });
       expect(wrongPmdc.status).toBe(400);
       expect(wrongPmdc.body.message).toMatch(/PMDC/);
       const pt = await request(http).post('/api/auth/register/doctor')
-        .send({ ...base, email: `e2e_pt_${stamp}@vitacare.test`, specialty: 'Physiotherapy', pmdcNumber: 'AHPC-PT-55555' });
+        .send({ phone: '03001234567', ...base, email: `e2e_pt_${stamp}@vitacare.test`, specialty: 'Physiotherapy', pmdcNumber: 'AHPC-PT-55555' });
       expect(pt.status).toBe(201);
       const me = await request(http).get('/api/doctors/me/profile').set(as(pt.body.accessToken));
       expect(me.body.council).toBe('AHPC');
@@ -969,6 +1018,318 @@ describe('Vita Care API (e2e)', () => {
     it('AI status no longer reveals the provider or model', async () => {
       const res = await request(http).get('/api/chatbot/status');
       expect(Object.keys(res.body)).toEqual(['aiEnabled']);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Security hardening
+  // ---------------------------------------------------------------------------
+  describe('Security hardening', () => {
+    const decode = (t: string) => JSON.parse(Buffer.from(t.split('.')[1], 'base64url').toString());
+
+    it('locks one account after 5 wrong passwords, even for the right password', async () => {
+      const email = `e2e_lock_${stamp}@vitacare.test`;
+      await request(http).post('/api/auth/register/patient').send({ phone: '03001234567', city: 'Karachi', email, password, firstName: 'Lock', lastName: 'Test' });
+      for (let i = 0; i < 5; i++) {
+        const r = await request(http).post('/api/auth/login').send({ email, password: 'wrong-password' });
+        expect(r.status).toBe(401);
+      }
+      const locked = await request(http).post('/api/auth/login').send({ email, password });
+      expect(locked.status).toBe(429);
+      expect(locked.body.message).toMatch(/failed sign-in attempts/);
+    });
+
+    it('admin tokens last 12 hours; other tokens 7 days', async () => {
+      const admin = await request(http).post('/api/auth/login').send({ email: 'admin@vitacare.test', password });
+      const a = decode(admin.body.accessToken);
+      expect(a.exp - a.iat).toBe(12 * 3600);
+      const patient = decode(await login('patient@vitacare.test'));
+      expect(patient.exp - patient.iat).toBe(7 * 24 * 3600);
+    });
+
+    it('a token whose payload claims "admin" is not trusted: the role comes from the database', async () => {
+      const real = decode(await login('patient@vitacare.test'));
+      const forged = app.get(JwtService).sign({ sub: real.sub, email: real.email, role: 'admin' });
+      const res = await request(http).get('/api/admin/stats').set('Authorization', `Bearer ${forged}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('rejects unsigned ("alg: none") and tampered tokens', async () => {
+      const real = await login('patient@vitacare.test');
+      const [h, p] = real.split('.');
+      const none = `${Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url')}.${p}.`;
+      expect((await request(http).get('/api/auth/me').set('Authorization', `Bearer ${none}`)).status).toBe(401);
+      const tamperedPayload = Buffer.from(JSON.stringify({ ...decode(real), role: 'admin' })).toString('base64url');
+      const tampered = `${h}.${tamperedPayload}.${real.split('.')[2]}`;
+      expect((await request(http).get('/api/admin/stats').set('Authorization', `Bearer ${tampered}`)).status).toBe(401);
+    });
+
+    it('error responses do not leak stack traces', async () => {
+      const res = await request(http).post('/api/auth/login').send({ email: 'not-an-email', password: 1 });
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body)).not.toMatch(/at .*\.ts:\d+|node_modules/);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Email verification (Brevo) and Google sign-in (Firebase)
+  // ---------------------------------------------------------------------------
+  describe('Email verification and Google sign-in', () => {
+    const as = (t: string) => ({ Authorization: `Bearer ${t}` });
+    const chat = (t: string) =>
+      request(http).post('/api/chatbot/consult').set(as(t)).send({ messages: [{ role: 'user', content: 'mild cough' }] });
+    let token = '';
+    let verifyUrl = '';
+    const email = `e2e_verify_${stamp}@vitacare.test`;
+
+    it('sign-up is not verified yet and the AI is closed until it is', async () => {
+      const res = await request(http).post('/api/auth/register/patient').send({ phone: '03001234567', city: 'Karachi', email, password, firstName: 'Verify', lastName: 'Me' });
+      expect(res.status).toBe(201);
+      expect(res.body.user.emailVerified).toBe(false);
+      expect(res.body.devVerificationUrl).toMatch(/\/verify-email\?token=[a-f0-9]{64}$/); // no Brevo key in tests
+      token = res.body.accessToken;
+      verifyUrl = res.body.devVerificationUrl;
+      const blocked = await chat(token);
+      expect(blocked.status).toBe(403);
+      expect(blocked.body.message).toMatch(/confirm your email/);
+      expect((await request(http).get('/api/auth/me').set(as(token))).body.emailVerified).toBe(false);
+    });
+
+    it('asking for a new email straight away hits the 60-second cooldown', async () => {
+      const res = await request(http).post('/api/auth/resend-verification').set(as(token));
+      expect(res.status).toBe(429);
+      expect(res.body.message).toMatch(/ask for a new link in about \d+ hours?/);
+    });
+
+    it('a wrong link is refused; the right link verifies once and then the AI opens', async () => {
+      expect((await request(http).post('/api/auth/verify-email').send({ token: 'a'.repeat(64) })).status).toBe(400);
+      const t = new URL(verifyUrl).searchParams.get('token');
+      const ok = await request(http).post('/api/auth/verify-email').send({ token: t });
+      expect(ok.status).toBe(200);
+      expect(ok.body.email).toBe(email);
+      expect((await request(http).post('/api/auth/verify-email').send({ token: t })).status).toBe(400); // single use
+      expect((await chat(token)).status).toBe(200); // same token now works: verification is read from the database
+      const login = await request(http).post('/api/auth/login').send({ email, password });
+      expect(login.body.user.emailVerified).toBe(true);
+      expect((await request(http).post('/api/auth/resend-verification').set(as(token))).body.alreadyVerified).toBe(true);
+    });
+
+    it('existing (seeded) accounts are already verified', async () => {
+      const res = await request(http).post('/api/auth/login').send({ email: 'patient@vitacare.test', password });
+      expect(res.body.user.emailVerified).toBe(true);
+    });
+
+    it('Google sign-in: clear 503 when Firebase is not set up', async () => {
+      const res = await request(http).post('/api/auth/google').send({ idToken: 'x'.repeat(200) });
+      expect(res.status).toBe(503);
+    });
+
+    it('Google sign-in: a new person first chooses a role and fills in details; then signs in directly', async () => {
+      const verifier = app.get(FirebaseVerifier);
+      const gEmail = `e2e_google_${stamp}@gmail.com`;
+      const spy = jest.spyOn(verifier, 'verify').mockResolvedValue({ uid: `uid-${stamp}`, email: gEmail, emailVerified: true, name: 'Sara Google Khan' });
+      const first = await request(http).post('/api/auth/google').send({ idToken: 'x'.repeat(200) });
+      expect(first.status).toBe(200);
+      expect(first.body.needsOnboarding).toBe(true);
+      expect(first.body.accessToken).toBeUndefined(); // no account until the role form is done
+      expect(first.body.email).toBe(gEmail);
+      const missing = await request(http).post('/api/auth/google/complete').send({ signupToken: first.body.signupToken, role: 'patient', details: { firstName: 'Sara', lastName: 'Khan', city: 'Karachi' } });
+      expect(missing.status).toBe(400);
+      expect(JSON.stringify(missing.body.message)).toMatch(/Pakistani phone number/);
+      const done = await request(http).post('/api/auth/google/complete').send({ signupToken: first.body.signupToken, role: 'patient', details: { firstName: 'Sara', lastName: 'Khan', phone: '03240236991', city: 'Karachi' } });
+      expect(done.status).toBe(200);
+      expect(done.body.user.role).toBe('patient');
+      expect(done.body.user.emailVerified).toBe(true);
+      expect((await chat(done.body.accessToken)).status).toBe(200); // Google users can use the AI at once
+      const again = await request(http).post('/api/auth/google').send({ idToken: 'x'.repeat(200) });
+      expect(again.body.user.id).toBe(done.body.user.id); // second time: straight in
+      expect((await request(http).post('/api/auth/google/complete').send({ signupToken: 'not-a-real-token-xxxxxxxx', role: 'patient', details: {} })).status).toBe(401);
+
+      // A new Google doctor gets the same PMDC checks and starts pending.
+      spy.mockResolvedValue({ uid: `uid-doc-${stamp}`, email: `e2e_gdoc_${stamp}@gmail.com`, emailVerified: true, name: 'Ahmed Doc' });
+      const d1 = await request(http).post('/api/auth/google').send({ idToken: 'x'.repeat(200) });
+      const d2 = await request(http).post('/api/auth/google/complete').send({ signupToken: d1.body.signupToken, role: 'doctor', details: { firstName: 'Ahmed', lastName: 'Doc', specialty: 'ENT', pmdcNumber: '12345-P', phone: '03001234567', city: 'Karachi' } });
+      expect(d2.status).toBe(200);
+      expect(d2.body.user.role).toBe('doctor');
+      const prof = await request(http).get('/api/doctors/me/profile').set(as(d2.body.accessToken));
+      expect(prof.body.verificationStatus).toBe('pending');
+
+      // An existing password account with the same email is linked, not duplicated.
+      const existing = await request(http).post('/api/auth/login').send({ email, password });
+      spy.mockResolvedValue({ uid: `uid2-${stamp}`, email, emailVerified: true, name: 'Verify Me' });
+      const linked = await request(http).post('/api/auth/google').send({ idToken: 'x'.repeat(200) });
+      expect(linked.body.user.id).toBe(existing.body.user.id);
+      spy.mockRestore();
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Feedback round (1 Oct): phone validation, area-wise doctors, referral line
+  // ---------------------------------------------------------------------------
+  describe('Phone validation, area-wise doctors and referral line', () => {
+    const as = (t: string) => ({ Authorization: `Bearer ${t}` });
+
+    it('booking rejects a junk phone number with a clear message', async () => {
+      const saif = (await request(http).get('/api/doctors').query({ search: 'Saif' })).body[0];
+      const res = await request(http).post('/api/appointments').send({
+        doctorId: saif.id, patientName: 'Phone Test', patientPhone: 'oi43uuuuuuuu0u984u8j', date: '2030-01-01', timeSlot: '10:00 AM',
+      });
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.body.message)).toMatch(/Pakistani phone number/);
+    });
+
+    it('sign-up requires a valid Pakistani phone (empty or letters are refused)', async () => {
+      const empty = await request(http).post('/api/auth/register/patient').send({ phone: '', city: 'Karachi', email: `e2e_ph1_${stamp}@vitacare.test`, password, firstName: 'Ph', lastName: 'One' });
+      expect(empty.status).toBe(400);
+      expect(JSON.stringify(empty.body.message)).toMatch(/Pakistani phone number/);
+      const bad = await request(http).post('/api/auth/register/patient').send({ phone: 'abc123', city: 'Karachi', email: `e2e_ph2_${stamp}@vitacare.test`, password, firstName: 'Ph', lastName: 'Two' });
+      expect(bad.status).toBe(400);
+      const ok = await request(http).post('/api/auth/register/patient').send({ phone: '0324-0236991', city: 'Karachi', email: `e2e_ph3_${stamp}@vitacare.test`, password, firstName: 'Ph', lastName: 'Three' });
+      expect(ok.status).toBe(201);
+      const noCity = await request(http).post('/api/auth/register/patient').send({ phone: '03240236991', email: `e2e_ph4_${stamp}@vitacare.test`, password, firstName: 'Ph', lastName: 'Four' });
+      expect(noCity.status).toBe(400);
+    });
+
+
+    it('recommends doctors in the patient\'s own area first, then the same city', async () => {
+      const svc = app.get(DoctorsService);
+      const all = (await request(http).get('/api/doctors').query({ specialty: 'General Physician' })).body as any[];
+      const target = all.find((d) => d.address && d.address.split(',').length > 1 && all.filter((x) => x.city === d.city).length > 1);
+      const area = target.address.split(',')[0].trim();
+      const recs = await svc.recommend(target.specialty, { city: target.city, address: `House 1, Street 2, ${area}, ${target.city}` }, 3);
+      expect(recs[0].proximity).toBe('area');
+      expect(recs[0].address.startsWith(area)).toBe(true);
+      // order is always: same area → same city → elsewhere
+      const rank = (r: any) => (r.proximity === 'area' ? 0 : r.proximity === 'city' ? 1 : 2);
+      expect(recs.map(rank)).toEqual([...recs.map(rank)].sort());
+    });
+
+    it('uses a city named in the chat when the profile has none', async () => {
+      const svc = app.get(DoctorsService);
+      const recs = await svc.recommend('ENT' as any, { text: 'main lahore mein rehta hoon, gala kharab hai' }, 2);
+      expect(recs[0].city).toBe('Lahore');
+      expect(recs[0].proximity).toBe('city');
+    });
+
+    it('the assessment names the department and nearby doctors in the patient\'s language', async () => {
+      const tok = await login('patient@vitacare.test');
+      const msgs: any[] = [];
+      let res: any;
+      for (const m of ['mjhe sir m bht drd hrha he', '2 din se', 'halka', 'kuch nahi']) {
+        msgs.push({ role: 'user', content: m });
+        res = await request(http).post('/api/chatbot/consult').set(as(tok)).send({ messages: msgs });
+        msgs.push({ role: 'assistant', content: res.body.reply });
+      }
+      expect(res.body.language).toBe('roman-ur');
+      expect(res.body.urgency).not.toBe('emergency'); // strong pain alone is not an emergency
+      expect(res.body.stage).toBe('assessment');
+      expect(res.body.reply).toMatch(/ke doctor ko dikhayein\. Aap ke qareeb: Dr /);
+      expect(res.body.recommendedDoctors[0].city).toBe('Karachi'); // the demo patient lives in Karachi
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Report round 2 (1 Oct): forgot password, contact, doctor photo, home charge, shifts, roles
+  // ---------------------------------------------------------------------------
+  describe('Forgot password, contact page, doctor photo, home-visit charge, shifts', () => {
+    const as = (t: string) => ({ Authorization: `Bearer ${t}` });
+    const email = `e2e_reset_${stamp}@vitacare.test`;
+
+    it('forgot password: same answer for unknown emails; code resets the password once', async () => {
+      await request(http).post('/api/auth/register/patient').send({ phone: '03001234567', city: 'Karachi', email, password, firstName: 'Reset', lastName: 'Me' });
+      const unknown = await request(http).post('/api/auth/forgot-password').send({ email: `nobody_${stamp}@example.com` });
+      expect(unknown.status).toBe(200);
+      expect(unknown.body.devCode).toBeUndefined();
+      const res = await request(http).post('/api/auth/forgot-password').send({ email });
+      expect(res.body.message).toBe(unknown.body.message);
+      expect(res.body.devCode).toMatch(/^\d{6}$/);
+      const again = await request(http).post('/api/auth/forgot-password').send({ email });
+      expect(again.body.devCode).toBeUndefined(); // one code per 10 minutes
+      expect(again.body.message).toMatch(/already sent you a code/);
+      const wrong = await request(http).post('/api/auth/reset-password').send({ email, code: '000000', newPassword: 'NewPassword1' });
+      expect(wrong.status).toBe(400);
+      const ok = await request(http).post('/api/auth/reset-password').send({ email, code: res.body.devCode, newPassword: 'NewPassword1' });
+      expect(ok.status).toBe(200);
+      expect((await request(http).post('/api/auth/login').send({ email, password: 'NewPassword1' })).status).toBe(200);
+      expect((await request(http).post('/api/auth/login').send({ email, password })).status).toBe(401);
+      expect((await request(http).post('/api/auth/reset-password').send({ email, code: res.body.devCode, newPassword: 'Another123' })).status).toBe(400); // single use
+    });
+
+    it('forgot password: 5 wrong codes block the code', async () => {
+      const e2 = `e2e_reset2_${stamp}@vitacare.test`;
+      await request(http).post('/api/auth/register/patient').send({ phone: '03001234567', city: 'Karachi', email: e2, password, firstName: 'Reset', lastName: 'Two' });
+      const { body } = await request(http).post('/api/auth/forgot-password').send({ email: e2 });
+      for (let i = 0; i < 5; i++) await request(http).post('/api/auth/reset-password').send({ email: e2, code: '111111', newPassword: 'NewPassword1' });
+      const blocked = await request(http).post('/api/auth/reset-password').send({ email: e2, code: body.devCode, newPassword: 'NewPassword1' });
+      expect(blocked.status).toBe(400);
+      expect(blocked.body.message).toMatch(/Too many wrong codes/);
+    });
+
+    it('contact form: validated, stored, and visible only to admins', async () => {
+      expect((await request(http).post('/api/contact').send({ name: 'A', email: 'bad', topic: 'x', message: 'hi' })).status).toBe(400);
+      const ok = await request(http).post('/api/contact').send({
+        name: 'e2e Contact', email: 'e2e_contact@example.com', phone: '03240236991', topic: 'Technical problem', message: 'e2e: the blog page does not load on my phone.',
+      });
+      expect(ok.status).toBe(201);
+      const patient = await login('patient@vitacare.test');
+      expect((await request(http).get('/api/admin/contact-messages').set(as(patient))).status).toBe(403);
+      const admin = await login('admin@vitacare.test');
+      const list = await request(http).get('/api/admin/contact-messages').set(as(admin));
+      expect(list.body.items.some((m: any) => m.id === ok.body.id)).toBe(true);
+      expect((await request(http).patch(`/api/admin/contact-messages/${ok.body.id}`).set(as(admin)).send({ status: 'done' })).status).toBe(200);
+    });
+
+    it('a doctor can upload a profile photo (images only)', async () => {
+      const doc = await login('dr.saif@vitacare.test');
+      const before = (await request(http).get('/api/doctors/me/profile').set(as(doc))).body.imageUrl ?? null;
+      const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+      const ok = await request(http).post('/api/doctors/me/photo').set(as(doc)).attach('file', png, { filename: 'me.png', contentType: 'image/png' });
+      expect(ok.status).toBe(201);
+      expect(ok.body.imageUrl).toMatch(/^\/uploads\/doctor-.*\.png$/);
+      const txt = await request(http).post('/api/doctors/me/photo').set(as(doc)).attach('file', Buffer.from('hello'), { filename: 'a.txt', contentType: 'text/plain' });
+      expect(txt.status).toBe(400);
+      const patient = await login('patient@vitacare.test');
+      expect((await request(http).post('/api/doctors/me/photo').set(as(patient)).attach('file', png, { filename: 'me.png', contentType: 'image/png' })).status).toBe(403);
+      await app.get(DataSource).query(`UPDATE doctors SET image_url = $1 WHERE id = $2`, [before, ok.body.id]); // keep demo data as it was
+    });
+
+    it('signed-in doctors cannot book (portal is for patients); guests still can', async () => {
+      const doc = await login('dr.saif@vitacare.test');
+      const res = await request(http).post('/api/appointments').set(as(doc)).send({
+        doctorId: 1, patientName: 'Dr Booking', patientPhone: '03001234567', date: '2030-01-07', timeSlot: '10:00 AM',
+      });
+      expect(res.status).toBe(403);
+      expect(res.body.message).toMatch(/patient account/);
+    });
+
+    it('home visits carry the doctor\'s home-visit charge', async () => {
+      const tok = await login('patient@vitacare.test');
+      const physio = (await request(http).get('/api/doctors').query({ specialty: 'Physiotherapy', city: 'Karachi' })).body[0];
+      expect(physio.homeVisitCharge).toBe(1000);
+      let slot: any = null;
+      for (let i = 2; i <= 21 && !slot; i++) {
+        const d = new Date(Date.now() + i * 86_400_000).toISOString().slice(0, 10);
+        const a = await request(http).get('/api/appointments/availability').query({ doctorId: physio.id, date: d });
+        const s = a.body.slots?.find((x: any) => x.status === 'available');
+        if (a.body.opdDay && s) slot = { date: d, timeSlot: s.time };
+      }
+      const ok = await request(http).post('/api/appointments').set(as(tok)).send({
+        doctorId: physio.id, patientName: 'Ali Hassan', patientPhone: '03001234567', ...slot, reason: 'e2e home charge',
+        visitType: 'home', homeAddress: 'House 14, Street 7, PECHS, Karachi',
+      });
+      expect(ok.status).toBe(201);
+      expect(ok.body.homeVisitCharge).toBe(1000);
+      await request(http).patch(`/api/appointments/${ok.body.id}/status`).set(as(tok)).send({ status: 'cancelled' });
+    });
+
+    it('nurses can be booked for a 12-hour day or night shift', async () => {
+      const tok = await login('patient@vitacare.test');
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Karachi', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      const res = await request(http).post('/api/home-care').set(as(tok)).send({
+        service: 'elderly_care', visitDate: today, timeWindow: 'night_shift', address: 'House 14, Street 7, PECHS, Karachi', city: 'Karachi', notes: 'e2e night shift',
+      });
+      expect(res.status).toBe(201);
+      expect(res.body.timeWindow).toBe('night_shift');
     });
   });
 });

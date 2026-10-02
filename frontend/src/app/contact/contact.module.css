@@ -1,0 +1,21 @@
+.page { background: var(--surface-2); padding-bottom: 64px; }
+.hero { background: linear-gradient(120deg, var(--navy), var(--blue)); color: #fff; padding: 44px 0 64px; }
+.hero h1 { color: #fff; font-size: clamp(1.8rem, 3.6vw, 2.5rem); }
+.hero p { color: rgba(255,255,255,.88); max-width: 640px; margin-top: 8px; }
+.grid { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 22px; margin-top: -32px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+.ways { display: flex; flex-direction: column; gap: 10px; }
+.way { display: flex; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; color: var(--navy); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; overflow-wrap: anywhere; }
+a.way:hover { transform: translateY(-3px); box-shadow: var(--shadow); border-color: var(--cyan); }
+.way span { display: flex; flex-direction: column; color: var(--body); font-size: .92rem; }
+.way strong { color: var(--ink); font-size: 1rem; }
+.emergency { display: flex; gap: 10px; background: #fdecec; color: #a42020; border-radius: var(--radius); padding: 14px 16px; font-size: .92rem; }
+.emergency a { color: #a42020; font-weight: 800; }
+.form h2 { font-size: 1.25rem; margin-bottom: 12px; }
+.form :global(.btn) { display: inline-flex; align-items: center; gap: 8px; }
+.ok { background: #e5f5e9; color: #1d7a34; border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px; font-weight: 600; }
+.faq { margin-top: 40px; max-width: 860px; }
+.faq h2 { font-size: 1.4rem; margin-bottom: 14px; color: var(--navy); }
+.qa { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 10px; }
+.qa summary { cursor: pointer; font-weight: 700; color: var(--ink); }
+.qa p { margin-top: 8px; color: var(--body); }

@@ -1,3 +1,4 @@
+import { IsPkPhone } from '../../../common/validators/pk-phone';
 import {
   IsEmail,
   IsEnum,
@@ -7,6 +8,7 @@ import {
   Max,
   Min,
   MinLength,
+  MaxLength,
 } from 'class-validator';
 import { Gender } from '../../../common/enums';
 
@@ -36,13 +38,13 @@ export class RegisterPatientDto {
   @IsEnum(Gender)
   gender?: Gender;
 
-  @IsOptional()
-  @IsString()
-  phone?: string;
+  @IsPkPhone()
+  phone: string;
 
-  @IsOptional()
   @IsString()
-  city?: string;
+  @MinLength(2, { message: 'Choose your city' })
+  @MaxLength(80)
+  city: string;
 
   @IsOptional()
   @IsString()

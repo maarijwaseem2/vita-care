@@ -1,7 +1,7 @@
 {
   "name": "vita-care-frontend",
   "version": "1.0.0",
-  "description": "Vita Care \u2014 AI triage and doctor booking web app (Next.js)",
+  "description": "Vita Care — AI triage and doctor booking web app (Next.js)",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -20,6 +20,7 @@
     "@tiptap/react": "^2.27.3",
     "@tiptap/starter-kit": "^2.27.3",
     "axios": "^1.7.7",
+    "firebase": "^12.19.0",
     "lucide-react": "^0.446.0",
     "next": "14.2.13",
     "react": "^18.3.1",

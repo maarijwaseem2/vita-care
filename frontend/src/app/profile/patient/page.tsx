@@ -1,5 +1,6 @@
 'use client';
 
+import { cleanPhoneInput, isPkPhone, PHONE_HELP } from '@/lib/phone';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -232,7 +233,7 @@ export default function PatientDashboard() {
                   </select>
                 </Field>
                 <Field label="Phone">
-                  <input className="input" value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} />
+                  <input className="input" value={form.phone ?? ''} onChange={(e) => set('phone', cleanPhoneInput(e.target.value))} inputMode="tel" placeholder="03001234567" />
                 </Field>
                 <Field label="City">
                   <input className="input" value={form.city ?? ''} onChange={(e) => set('city', e.target.value)} />

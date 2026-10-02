@@ -344,3 +344,5 @@
 .medHead span { color: var(--muted); font-size: 0.8rem; }
 .medWhy { color: var(--blue); }
 .medCaution { color: #8a5a00; font-size: 0.82rem; }
+
+.usageNote { color: var(--muted); font-size: 0.8rem; text-align: end; margin: 4px 4px 0; }

@@ -43,6 +43,15 @@ zaroorat ho to **verified nurse ya physiotherapist ghar** bhejta hai — aur har
 - Mareez ka record (umar, bimariyan, dawaiyan) AI ko jata hai; **naam aur phone kabhi nahi**.
 - AI ka provider/model naam ab kahin nahi dikhta (sirf "Offline mode" agar AI band ho).
 
+### AI ka istemal: login lazmi aur rozana limit (tokens bachane ke liye)
+- AI Doctor chat, report/scan samjhana aur voice — **sirf login ke baad**. Guest ko "Sign in / Create a free account" ka page dikhta hai, lekin **1122, Edhi 115 aur Umang** ke call buttons wahan bhi hain.
+- **Har user ki rozana limit** (Pakistan time ke mutabiq raat 12 baje reset): 40 AI messages, 5 report/scan, 40 voice. `.env` mein `AI_DAILY_MESSAGES`, `AI_DAILY_REPORTS`, `AI_DAILY_VOICE` se badli ja sakti hai. **Admin pe limit nahi** (testing aur evaluation ke liye).
+- Limit ek hi SQL query mein check aur count hoti hai — 7 requests ek saath bhejne pe bhi bilkul 5 hi chalti hain (test kiya).
+- Chat mein dikhta hai "X AI messages left today"; limit khatam ho to saaf message.
+- **Safety:** limit khatam hone ke baad bhi agar mareez emergency likhe ("seene mein dard aur paseena"), to rules wala emergency jawab (1122, Edhi) milta hai — is mein koi token kharch nahi hota.
+- Har AI jawab ki lambai pe hadd: chat 700 tokens, report 1,400, safety check 80, voice conversion 300.
+- Offline mode (AI key na ho) mein tokens kharch nahi hote, isliye wahan limit count nahi hoti — lekin login phir bhi lazmi hai.
+
 ### Department ka faisla (doctor recommend karna)
 AI department batata hai, phir backend mareez ke alfaaz se check karta hai (rules: "nahi" aur purani history ignore):
 
@@ -112,7 +121,8 @@ Mock AI ne jaan-boojh kar ghalat jawab diye (gala+bukhar pe General Physician, a
 | Test | Result |
 | --- | --- |
 | Backend unit tests | **126 / 126 pass** |
-| API end-to-end tests (asli PostgreSQL) | **96 / 96 pass** — RBAC, AHPC, home visit location privacy, receipt pe address na hona |
+| API end-to-end tests (asli PostgreSQL) | **99 / 99 pass** — RBAC, AHPC, home visit location privacy, receipt pe address na hona, AI ke liye login lazmi, rozana limit (parallel requests samet) |
+| Login gate aur limit (browser) | **8 / 8 pass**: guest ko gate + 1122, login ke baad wapas AI page, counter 3→0, limit ka message |
 | Safety evaluation (119 cases) | **36/36 emergencies**, **16/16 trap cases** ("nahi", purani history, falij ke baad physio) |
 | Department routing (rules only) | **98.8 % (82/83)** — lekin ye rules isi development set pe tune hue hain; naye cases pe kam ho sakta hai |
 | Browser test (naye features) | **16 / 16 pass**: physio home visit + GPS, AHPC form, badges, scan page, dropdown size, Maps link |
@@ -127,3 +137,65 @@ Mock AI ne jaan-boojh kar ghalat jawab diye (gala+bukhar pe General Physician, a
 - Evaluation cases team ne likhe hain; clinically validated nahi.
 - X-ray/CT ka hissa sirf description hai, diagnosis nahi — aur aisa hi rehna chahiye.
 - Payments, SMS/WhatsApp, nurse/physio ki live tracking abhi nahi.
+
+---
+
+## Feedback round (PDF, 1 October 2026)
+
+| Feedback | Kya kiya |
+| --- | --- |
+| Hero ka text attractive | "Feeling unwell? **Meet the right doctor**, right near you." (gradient), aur bold points: safe first advice, emergency check, verified specialist near your area |
+| Hero ki photo | Asli South Asian doctor ki photo (Unsplash, free licence), gol frame |
+| Stats bold | Labels bold; departments ka number 9 → 11 |
+| Departments ka text bold + asli icons | Bold text; 12 asli 3D icons (Microsoft Fluent Emoji, MIT licence): stethoscope, dil, dimagh, bacha, kaan, haddi… |
+| "Why Vita Care" ki photo aur heading | Nayi asli photo (doctor mareez ka BP check kar rahi hai); heading bold, uppercase |
+| Lab report ka alag section | Home page pe "Got a report you don't understand?" section + navbar mein **Lab Reports** tab |
+| Footer ki example email | Hata di |
+| Phone validation | Sirf numbers type hote hain; Pakistani format (03001234567, +92…, landline) frontend aur backend dono pe; booking, signup, profiles |
+| Roman Urdu mein Roman Urdu jawab | SMS-style spellings ("mjhe sir m bht drd hrha he") ab Roman Urdu pehchani jati hain |
+| "Sir mein bohat dard" pe ghalat emergency | Sirf dard ki shiddat emergency nahi; AI safety check ko clear danger sign chahiye |
+| Core concept: guidance + department + qareebi doctor | Har assessment ke jawab mein mareez ki zabaan mein: "Aap Neurology ke doctor ko dikhayein. Aap ke qareeb: Dr … (area, city)" |
+| Area ke hisaab se doctor | Pehle mareez ke **area** ke doctors (profile address), phir **sheher**, phir baqi; profile mein sheher na ho to chat mein likha sheher; card pe "Near you / In your city" |
+| Har jagah Nasreen | 28 aur nurses (har bade sheher mein 6–7, har service covered); demo nurse ki rating aam rakhi |
+| AI ka provider tag | Kahin nahi (check kiya) |
+| Blog ki alignment | Title, banner, text aur CTA ek hi column mein (desktop 313 px, mobile 20 px); list bullets wapas |
+
+**Tests:** 144 unit, 115 API (naye: phone, area-wise doctors, chat mein sheher, Roman Urdu referral line, dard pe ghalat emergency na ho), browser 18 checks.
+
+---
+
+## Report round 2 (1 October 2026)
+
+| # | Report | Kya kiya |
+| --- | --- | --- |
+| 1 | Patient signup pe city dropdown | 27 sheheron ka dropdown (AI qareebi doctor isi se dhoondta hai) |
+| 2 | Doctor ki photo | Doctor dashboard → "Add a profile photo" (JPG/PNG/WEBP, 2 MB); card aur profile pe dikhti hai |
+| 3 | Home visit ka travel fee | Har doctor ka "home visit charge" (default Rs 1,000, dashboard se badal sakte hain); booking pe fee + charge = total; booking pe save |
+| 4 | Language kaam nahi karti | Chuni zabaan mein jawab na ho to backend translate karta hai (sirf tab, max 400 tokens) |
+| 5 | Har jagah ek nurse | Seed ka formula naam repeat karta tha → 24 unique naam + purane rows ke naam theek |
+| 6 | Nurse duty 12 ghante | Single visit (subah/dopahar/shaam) + **12-hour day duty** aur **12-hour night duty** |
+| 7 | Blogs ki alignment | 13 posts × 2 screen sizes naape: sab aligned |
+| 8 | Doctor ko patient pages | Doctor/nurse ke navbar se AI Doctor, Lab Reports, Home Nursing hate; khole to "ye patients ke liye hai" + dashboard |
+| 9 | Doctor ki booking nazar nahi aati | Signed-in doctor/nurse/admin booking nahi kar sakte (saaf message); booking patient account se |
+| 10 | Dashboard static? | Dynamic — `docs/RUN-GUIDE.md` §8 |
+| 11 | Blog add nahi hota | Local pe publish chalta hai aur har ghalti ka message saaf dikhta hai; staging pe na ho to form pe likha error bhejein (aksar CORS_ORIGIN / API URL) |
+| 12 | Forgot password | Login pe link; 6-digit email code |
+| — | Verification email | 24 ghante mein sirf ek |
+| — | Signup UI | `/register` pe 3 animated role cards; login pe role buttons; buttons/cards pe hover animation |
+| — | Contact | Footer + Contact page: +92 324 0236991, maarijwaseem7@gmail.com, WhatsApp, hours, form → Admin → Messages + email |
+
+**Tests:** 144 unit, 122 API, browser 18/18 (city, role cards, forgot password, contact, doctor gates, photo, shifts, unique nurses, home fee, language), 13 blogs aligned.
+
+### Final test run (1 Oct 2026, after report round 2)
+| Test | Result |
+| --- | --- |
+| Unit | 144 / 144 |
+| API (PostgreSQL) | 122 / 122 |
+| Maestro (Chrome, every role) | **12 / 12 in one run** — flow 01 updated for the new hero text, flow 02 for the PMDC badge next to names, new flows 11 (register/contact/forgot) and 12 (doctor sees "for patients") |
+| Responsive | 35 pages × 2 sizes, every role: no overflow, no JS errors. Found and fixed: the doctor-photo block sat inside the card's header row and pushed the card 15 px off-screen on phones |
+
+### Sign-up round (1 Oct 2026)
+- Email sign-up in **2 steps** for every role (account → details); **phone required and validated** everywhere; patient city required.
+- **Google sign-up asks the role**: new Google users choose Patient / Doctor / Nurse, then fill the same form (email locked, no password). Doctors/nurses still need licence verification.
+- Doctor form: clear message if no department is chosen.
+- Tests: API 122/122 (incl. Google role flow, required phone/city), browser sign-up 21/21, responsive 36 pages × 2 sizes clean, Maestro 12/12.

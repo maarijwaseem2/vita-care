@@ -1,0 +1,36 @@
+url: http://localhost:3000
+name: 11_register_contact_forgot
+tags: [public, auth, contact]
+---
+# Sign-up chooser: three role cards
+- openLink: http://localhost:3000/login?logout=1
+- openLink: http://localhost:3000/register
+- assertVisible: "Create your Vita Care account"
+- assertVisible: "I am a patient"
+- assertVisible: "I am a doctor or physiotherapist"
+- assertVisible: "I am a nurse"
+- tapOn: "I am a patient"
+- assertVisible: "Create your patient account"
+- assertVisible: ".*Continue.*"
+# Contact page form
+- openLink: http://localhost:3000/contact
+- assertVisible: "Contact us"
+- assertVisible: ".*\\+92 324 0236991.*"
+- tapOn:
+    id: c-name
+- inputText: "Maestro Tester"
+- tapOn:
+    id: c-email
+- inputText: "maestro@example.com"
+- tapOn:
+    id: c-msg
+- inputText: "Maestro test: checking the contact form end to end."
+- tapOn: ".*Send message.*"
+- assertVisible: ".*reply within one working day.*"
+# Forgot password asks for the email and moves to the code step
+- openLink: http://localhost:3000/forgot-password
+- tapOn:
+    id: fp-email
+- inputText: "patient@vitacare.test"
+- tapOn: ".*Send me a code.*"
+- assertVisible: ".*6-digit code.*"

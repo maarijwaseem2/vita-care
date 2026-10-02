@@ -1,3 +1,4 @@
+import { IsPkPhone } from '../../../common/validators/pk-phone';
 import {
   IsEnum,
   IsInt,
@@ -13,7 +14,7 @@ export class UpdatePatientDto {
   @IsOptional() @IsString() lastName?: string;
   @IsOptional() @IsInt() @Min(0) @Max(120) age?: number;
   @IsOptional() @IsEnum(Gender) gender?: Gender;
-  @IsOptional() @IsString() phone?: string;
+  @IsOptional() @IsPkPhone({ allowEmpty: true }) phone?: string;
   @IsOptional() @IsString() city?: string;
   @IsOptional() @IsString() address?: string;
   @IsOptional() @IsString() currentMedication?: string;

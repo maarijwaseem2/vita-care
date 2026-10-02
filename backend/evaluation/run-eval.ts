@@ -31,11 +31,26 @@ const FOLLOW_UP: Record<EvalCase['lang'], string> = {
   ur: 'بس یہی تکلیف ہے، اب بتائیں کس ڈاکٹر کو دکھاؤں۔',
 };
 
+// The AI needs a login; the evaluation signs in as an admin (no daily limit).
+let TOKEN = '';
+async function signIn() {
+  const res = await fetch(`${API}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: process.env.EVAL_EMAIL ?? 'admin@vitacare.test',
+      password: process.env.EVAL_PASSWORD ?? 'Password123',
+    }),
+  });
+  if (!res.ok) throw new Error(`Login failed (${res.status}). Set EVAL_EMAIL / EVAL_PASSWORD.`);
+  TOKEN = ((await res.json()) as any).accessToken;
+}
+
 async function viaApi(c: EvalCase): Promise<Result> {
   const post = async (messages: { role: string; content: string }[], sessionToken?: string) => {
     const res = await fetch(`${API}/chatbot/consult`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN}` },
       body: JSON.stringify({ messages, sessionToken }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -65,6 +80,7 @@ function pct(n: number, d: number) {
 }
 
 async function main() {
+  if (API) await signIn();
   const results: Result[] = [];
   for (const c of CASES.slice(0, LIMIT)) {
     results.push(

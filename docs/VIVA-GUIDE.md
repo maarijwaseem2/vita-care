@@ -86,6 +86,9 @@ Sirf visit accept karne ke baad. Pehle sirf area aur sheher dikhta hai, aur mare
 **Q: Roles aur security kaise sambhali?**
 Chaar roles hain: patient, doctor, nurse, admin. Har API route backend pe role check karta hai aur ownership bhi. Maslan doctor sirf apne mareez ka record kholta hai. 13 cross-role tests hain jo 403 confirm karte hain. Admin public signup se nahi banta. Poori table `docs/RBAC.md` mein hai.
 
+**Q: Koi bhi AI ko baar baar chala kar paisa (tokens) zaya kar de to?**
+AI sirf login ke baad chalta hai, aur har user ki rozana limit hai (40 messages, 5 reports). Har jawab ki lambai pe bhi hadd hai. Limit khatam hone ke baad bhi emergency ka jawab milta hai, kyunke wo rules se aata hai, AI se nahi — safety kabhi band nahi hoti.
+
 **Q: Business model?**
 Mareez ke liye free. Clinics aur hospitals booking ya pre-visit summary ke liye subscription dein. NGOs (jaise Alkhidmat) bade paimane pe triage ke liye use karein.
 

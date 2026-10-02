@@ -7,7 +7,7 @@ tags: [public]
 - tapOn:
     id: doctorSearch
 - inputText: "Saif"
-- assertVisible: "Dr Saif Ur Rehman"
+- assertVisible: ".*Dr Saif Ur Rehman.*"
 - openLink: http://localhost:3000/doctors/1
-- assertVisible: "Dr Saif Ur Rehman"
+- assertVisible: ".*Dr Saif Ur Rehman.*"
 - assertVisible: ".*Book appointment.*"

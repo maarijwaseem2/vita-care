@@ -1,5 +1,7 @@
 'use client';
 
+import DoctorPhoto from '@/components/doctor/DoctorPhoto';
+import { cleanPhoneInput, isPkPhone, PHONE_HELP } from '@/lib/phone';
 import { homeFor } from '@/lib/roles';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -68,6 +70,7 @@ export default function DoctorDashboard() {
           city: d.city ?? '',
           address: d.address ?? '',
           fees: d.fees != null ? String(d.fees) : '',
+          homeVisitCharge: d.homeVisitCharge != null ? String(d.homeVisitCharge) : '1000',
           pmdcNumber: d.pmdcNumber ?? '',
           clinicName: d.clinicName ?? '',
           opdSchedule: d.opdSchedule ?? '',
@@ -101,6 +104,7 @@ export default function DoctorDashboard() {
         city: form.city,
         address: form.address,
         fees: form.fees ? Number(form.fees) : undefined,
+        ...(doctor.homeVisits ? { homeVisitCharge: form.homeVisitCharge ? Number(form.homeVisitCharge) : 0 } : {}),
         pmdcNumber: form.pmdcNumber || undefined,
         clinicName: form.clinicName || undefined,
         opdSchedule: form.opdSchedule,
@@ -187,6 +191,7 @@ export default function DoctorDashboard() {
                 </div>
               )}
             </div>
+            <DoctorPhoto doctor={doctor} onChange={(d) => setDoctor(d)} />
 
             {!editing ? (
               <div className={styles.infoGrid}>
@@ -227,7 +232,7 @@ export default function DoctorDashboard() {
                   </select>
                 </Field>
                 <Field label="Phone">
-                  <input className="input" value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+                  <input className="input" value={form.phone} onChange={(e) => set('phone', cleanPhoneInput(e.target.value))} inputMode="tel" placeholder="03001234567" />
                 </Field>
                 <Field label="City">
                   <input className="input" value={form.city} onChange={(e) => set('city', e.target.value)} />
@@ -241,6 +246,11 @@ export default function DoctorDashboard() {
                 <Field label="Consultation fee (Rs)">
                   <input className="input" type="number" value={form.fees} onChange={(e) => set('fees', e.target.value)} />
                 </Field>
+                {doctor.homeVisits && (
+                  <Field label="Home visit charge (Rs, travel)">
+                    <input className="input" type="number" min={0} max={20000} value={form.homeVisitCharge} onChange={(e) => set('homeVisitCharge', e.target.value)} />
+                  </Field>
+                )}
                 <Field label="OPD schedule">
                   <input className="input" value={form.opdSchedule} onChange={(e) => set('opdSchedule', e.target.value)} placeholder="Mon–Fri" />
                 </Field>

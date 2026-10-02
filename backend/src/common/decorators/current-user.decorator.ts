@@ -4,6 +4,8 @@ export interface AuthUser {
   userId: number;
   email: string;
   role: string;
+  /** Set from the database on every request. */
+  emailVerified?: boolean;
 }
 
 /**

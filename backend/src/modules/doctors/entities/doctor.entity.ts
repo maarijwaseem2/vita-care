@@ -112,6 +112,10 @@ export class Doctor {
   @Column({ name: 'home_visits', default: false })
   homeVisits: boolean;
 
+  /** Extra charge (Rs) for a visit at the patient's home: travel time and fuel. */
+  @Column({ name: 'home_visit_charge', type: 'int', default: 1000 })
+  homeVisitCharge: number;
+
   @OneToMany(() => Appointment, (appointment) => appointment.doctor)
   appointments: Appointment[];
 

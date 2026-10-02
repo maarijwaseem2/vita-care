@@ -1,3 +1,4 @@
+import { IsPkPhone } from '../../../common/validators/pk-phone';
 import {
   IsArray,
   IsEmail,
@@ -84,9 +85,8 @@ export class RegisterDoctorDto {
   @IsEnum(Gender)
   gender?: Gender;
 
-  @IsOptional()
-  @IsString()
-  phone?: string;
+  @IsPkPhone()
+  phone: string;
 
   @IsOptional()
   @IsString()

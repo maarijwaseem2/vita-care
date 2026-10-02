@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   NotFoundException,
+  ForbiddenException,
   Param,
   ParseIntPipe,
   Patch,
@@ -36,6 +37,11 @@ export class AppointmentsController {
   @UseGuards(OptionalJwtAuthGuard)
   @Post()
   async create(@Body() dto: CreateAppointmentDto, @Req() req: { user?: AuthUser | null }) {
+    // Booking is for patients (or guests). A signed-in doctor, nurse or admin would get a booking
+    // they can never see, so they are asked to use a patient account instead.
+    if (req.user && req.user.role !== UserRole.PATIENT) {
+      throw new ForbiddenException('Appointments are booked from a patient account. Sign out, or sign in as a patient, to book.');
+    }
     let patientId: number | undefined;
     if (req.user?.role === UserRole.PATIENT) {
       const patient = await this.patientsService.findByUserId(req.user.userId);

@@ -1,5 +1,7 @@
 'use client';
 
+import PatientOnly from '@/components/auth/PatientOnly';
+import { cleanPhoneInput, isPkPhone, PHONE_HELP } from '@/lib/phone';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -88,6 +90,10 @@ function BookingForm() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isPkPhone(patientPhone)) {
+      setError(PHONE_HELP);
+      return;
+    }
     setError('');
     if (!slot) {
       setError('Please select a time slot.');
@@ -134,6 +140,7 @@ function BookingForm() {
   const day = schedule[date];
   const freeCount = day?.slots.filter((s) => s.status === 'available').length ?? 0;
 
+  if (user && user.role !== 'patient') return <PatientOnly role={user.role} what="Booking an appointment" />;
   return (
     <div className="container" style={{ padding: '32px 20px 64px' }}>
       <Link href={`/doctors/${doctor.id}`} className={styles.back}>
@@ -245,11 +252,14 @@ function BookingForm() {
                   name="patientPhone"
                   className="input"
                   value={patientPhone}
-                  onChange={(e) => setPatientPhone(e.target.value)}
-                  placeholder="03xx xxxxxxx"
+                  onChange={(e) => setPatientPhone(cleanPhoneInput(e.target.value))}
+                  placeholder="03001234567"
                   inputMode="tel"
+                  maxLength={18}
+                  aria-invalid={!!patientPhone && !isPkPhone(patientPhone)}
                   required
                 />
+                {patientPhone && !isPkPhone(patientPhone) && <span className="field-error">{PHONE_HELP}</span>}
               </div>
             </div>
 
@@ -282,6 +292,11 @@ function BookingForm() {
                       />
                     </div>
                     <LocationButton value={geo} onChange={setGeo} />
+                    <div className={styles.feeBox} aria-live="polite">
+                      <div><span>Consultation fee</span><b>Rs {Number(doctor.fees ?? 0).toLocaleString()}</b></div>
+                      <div><span>Home visit charge (travel)</span><b>Rs {Number(doctor.homeVisitCharge ?? 1000).toLocaleString()}</b></div>
+                      <div className={styles.feeTotal}><span>Total to pay the doctor</span><b>Rs {(Number(doctor.fees ?? 0) + Number(doctor.homeVisitCharge ?? 1000)).toLocaleString()}</b></div>
+                    </div>
                   </>
                 )}
               </fieldset>

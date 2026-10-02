@@ -1,3 +1,4 @@
+import { IsPkPhone } from '../../../common/validators/pk-phone';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize, ArrayMinSize, IsArray, IsEmail, IsIn, IsInt, IsNumber, IsOptional, IsString,
@@ -14,7 +15,7 @@ export class RegisterNurseDto {
   @IsString() @MinLength(2) @MaxLength(80) firstName: string;
   @IsString() @MinLength(1) @MaxLength(80) lastName: string;
   @IsIn(['male', 'female']) gender: 'male' | 'female';
-  @IsOptional() @Matches(/^[0-9+\-\s()]{7,20}$/, { message: 'Enter a valid phone number' }) phone?: string;
+  @IsPkPhone() phone: string;
   @IsString() @MinLength(2) @MaxLength(80) city: string;
   @IsOptional() @IsArray() @ArrayMaxSize(12) @IsString({ each: true }) areas?: string[];
   @IsIn(NURSE_QUALIFICATIONS) qualification: string;
@@ -27,7 +28,7 @@ export class RegisterNurseDto {
 }
 
 export class UpdateNurseDto {
-  @IsOptional() @Matches(/^[0-9+\-\s()]{7,20}$/) phone?: string;
+  @IsOptional() @IsPkPhone({ allowEmpty: true }) phone?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(12) @IsString({ each: true }) areas?: string[];
   @IsOptional() @IsArray() @IsIn(SERVICE_IDS, { each: true }) skills?: string[];
   @IsOptional() @IsInt() @Min(0) @Max(50000) visitFee?: number;

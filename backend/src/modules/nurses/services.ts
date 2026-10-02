@@ -13,4 +13,8 @@ export const HOME_SERVICES = [
 export type HomeServiceId = (typeof HOME_SERVICES)[number]['id'];
 export const SERVICE_IDS = HOME_SERVICES.map((s) => s.id) as string[];
 export const NURSE_QUALIFICATIONS = ['BSN (Registered Nurse)', 'Diploma RN', 'Post-RN BSN', 'Midwife', 'Lady Health Visitor (LHV)', 'Licensed Practical Nurse'];
-export const TIME_WINDOWS = ['morning', 'afternoon', 'evening'] as const;
+/**
+ * Single visits (about an hour) in a time window, or a full 12-hour nursing shift.
+ * Home-care nurses in Pakistan usually work 12-hour day or night duties.
+ */
+export const TIME_WINDOWS = ['morning', 'afternoon', 'evening', 'day_shift', 'night_shift'] as const;

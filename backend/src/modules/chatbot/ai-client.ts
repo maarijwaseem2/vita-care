@@ -65,7 +65,7 @@ export class AiClient {
   /** Call the model and return the raw text content of the first choice. */
   async complete(
     messages: ChatTurn[],
-    opts: { model?: string; json?: boolean; temperature?: number; timeoutMs?: number } = {},
+    opts: { model?: string; json?: boolean; temperature?: number; timeoutMs?: number; maxTokens?: number } = {},
   ): Promise<string> {
     if (!this.configured) {
       throw new AiUnavailableError('AI_API_KEY is not set', 'not_configured');
@@ -84,6 +84,8 @@ export class AiClient {
           model: opts.model ?? this.textModel,
           messages,
           temperature: opts.temperature ?? 0.2,
+          // Cap every answer so no single call can waste tokens.
+          max_tokens: opts.maxTokens ?? 800,
           ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
         }),
       });

@@ -1,0 +1,14 @@
+url: http://localhost:3000
+name: 12_doctor_patient_pages
+tags: [rbac, doctor]
+---
+- runFlow:
+    file: subflows/login.yaml
+    env: { EMAIL: dr.saif@vitacare.test }
+- assertVisible: "Appointment schedule"
+- openLink: http://localhost:3000/home-care
+- assertVisible: "Home nursing is for patients"
+- openLink: http://localhost:3000/appointments/2
+- assertVisible: "Booking an appointment is for patients"
+- tapOn: ".*Go to my dashboard.*"
+- assertVisible: "Appointment schedule"

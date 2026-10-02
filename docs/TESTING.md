@@ -81,7 +81,7 @@ cleaning the database.
 
 ## 3. UI end‑to‑end tests (Maestro)
 
-Ten Maestro web flows drive the real website in Chrome, covering every role:
+Twelve Maestro web flows drive the real website in Chrome, covering every role:
 
 | Flow | Role | Checks |
 | --- | --- | --- |
@@ -95,6 +95,8 @@ Ten Maestro web flows drive the real website in Chrome, covering every role:
 | 08_doctor_sees_vitals_and_orders_nurse | Doctor | Sees the alert in the visit panel; orders home nursing |
 | 09_admin_verify_nurse | Admin | Verifies the pending nurse |
 | 10_admin_publish_blog | Admin | Writes and publishes a post, opens it on the blog |
+| 11_register_contact_forgot | Guest | Role cards on /register, city dropdown, contact form, forgot-password code step |
+| 12_doctor_patient_pages | Doctor | Home Nursing and booking show "for patients" and lead back to the dashboard |
 
 ### Run them
 
@@ -128,6 +130,7 @@ showed no horizontal overflow.
 
 ## Summary
 
-- ✅ **126 unit tests** and **96 API e2e tests** pass (includes a 13-case RBAC matrix, AHPC and home-visit location tests).
+- ✅ **144 unit tests** and **122 API e2e tests** pass (includes a 13-case RBAC matrix, AHPC and home-visit location tests).
 - ✅ **119-case evaluation**: 36/36 emergencies, 16/16 trap cases, department routing 82/83 (rules only).
-- ✅ **10 Maestro flows** covering every role (results in `docs/WORK-SUMMARY.md`).
+- ✅ **12 Maestro flows** covering every role: 12/12 pass in one run (1 Oct 2026).
+- ✅ **Responsive:** 35 pages × 2 sizes (390 px, 768 px), every role: no horizontal overflow, no JS errors.

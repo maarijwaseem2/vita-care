@@ -16,6 +16,8 @@ import { AdminModule } from './modules/admin/admin.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { VoiceModule } from './modules/voice/voice.module';
 import { NursesModule } from './modules/nurses/nurses.module';
+import { EmailModule } from './modules/email/email.module';
+import { ContactModule } from './modules/contact/contact.module';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { NursesModule } from './modules/nurses/nurses.module';
     AdminModule,
     VoiceModule,
     NursesModule,
+    EmailModule,
+    ContactModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

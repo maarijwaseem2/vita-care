@@ -1,9 +1,14 @@
 'use client';
 
+import PatientOnly from '@/components/auth/PatientOnly';
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, FileText, ImageUp, Loader2, AlertTriangle, RotateCcw } from 'lucide-react';
 import DoctorCard from '@/components/doctors/DoctorCard';
+import AiLoginGate from '@/components/ai/AiLoginGate';
+import VerifyEmailGate from '@/components/ai/VerifyEmailGate';
+import Loader from '@/components/ui/Loader';
+import { useAuth } from '@/context/AuthContext';
 import { chatbotApi, getErrorMessage } from '@/lib/api';
 import type { ChatLanguage, ReportResult } from '@/lib/types';
 import styles from './report.module.css';
@@ -48,6 +53,7 @@ async function toCompressedBase64(file: File): Promise<{ base64: string; mime: s
 }
 
 export default function ReportPage() {
+  const { user, loading: authLoading } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
   const [lang, setLang] = useState<ChatLanguage>('en');
   const [preview, setPreview] = useState('');
@@ -92,6 +98,11 @@ export default function ReportPage() {
 
   const rtl = lang === 'ur';
 
+  if (authLoading) return <Loader label="Loading…" />;
+  if (!user) return <AiLoginGate redirect="/ai-doctor/report" title="Sign in to have your report or scan explained" />;
+  if (user.emailVerified === false && user.role !== 'admin') return <VerifyEmailGate />;
+
+  if (user.role === 'doctor' || user.role === 'nurse') return <PatientOnly role={user!.role} what="The report explainer" />;
   return (
     <div className={styles.page}>
       <div className="container">

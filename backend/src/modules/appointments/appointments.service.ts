@@ -66,6 +66,7 @@ export class AppointmentsService {
         reason: dto.reason?.trim() || null,
         triageSessionId,
         visitType: home ? 'home' : 'clinic',
+        homeVisitCharge: home ? doctor.homeVisitCharge ?? 1000 : null,
         homeAddress: home ? dto.homeAddress!.trim() : null,
         latitude: home ? dto.latitude ?? null : null,
         longitude: home ? dto.longitude ?? null : null,

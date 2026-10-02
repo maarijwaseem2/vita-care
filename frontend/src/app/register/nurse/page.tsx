@@ -1,10 +1,13 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import StepHeader from '@/components/auth/StepHeader';
+import { googleSignup, splitName, type GoogleSignup } from '@/lib/googleSignup';
+import { cleanPhoneInput, isPkPhone, PHONE_HELP } from '@/lib/phone';
+import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
-import { http, getErrorMessage } from '@/lib/api';
+import { authApi, http, getErrorMessage } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { QUALIFICATIONS, SERVICES, ServiceId } from '@/lib/nurse';
 import type { AuthResponse } from '@/lib/types';
@@ -24,6 +27,28 @@ export default function RegisterNursePage() {
   const [skills, setSkills] = useState<ServiceId[]>(['injection', 'vitals']);
   const [agree, setAgree] = useState(false);
   const [error, setError] = useState('');
+  const [step, setStep] = useState<1 | 2>(1);
+  const [google, setGoogle] = useState<GoogleSignup | null>(null);
+
+  // From "Continue with Google": name and email come from Google, no password needed.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('google') !== '1') return;
+    const g = googleSignup.get();
+    if (!g) return;
+    const [first, last] = splitName(g.name);
+    setGoogle(g);
+    setF((x) => ({ ...x, firstName: x.firstName || first, lastName: x.lastName || last, email: g.email }));
+  }, []);
+
+  const goNext = () => {
+    setError('');
+    if (f.firstName.trim().length < 2 || !f.lastName.trim()) return setError('Please write your first and last name.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) return setError('Enter a valid email address.');
+    if (!google && f.password.length < 8) return setError('Password must be at least 8 characters.');
+    if (!isPkPhone(f.phone)) return setError(PHONE_HELP);
+    setStep(2);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const [busy, setBusy] = useState(false);
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
   const toggle = (id: ServiceId) => setSkills((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -37,14 +62,21 @@ export default function RegisterNursePage() {
     if (!agree) return setError('Please confirm the declaration.');
     setBusy(true);
     try {
-      const { data } = await http.post<AuthResponse>('/auth/register/nurse', {
+      const payload: Record<string, unknown> = {
         email: f.email.trim(), password: f.password, firstName: f.firstName.trim(), lastName: f.lastName.trim(),
-        gender: f.gender, phone: f.phone.trim() || undefined, city: f.city,
+        gender: f.gender, phone: f.phone.trim(), city: f.city,
         areas: f.areas.split(',').map((a) => a.trim()).filter(Boolean),
         qualification: f.qualification, pncNumber: f.pncNumber.trim(), skills,
         experienceYears: f.experienceYears ? Number(f.experienceYears) : undefined,
         visitFee: Number(f.visitFee) || 0, availableDays: f.availableDays || undefined, bio: f.bio.trim() || undefined,
-      });
+      };
+      const { email: _email, password: _password, ...details } = payload;
+      void _email;
+      void _password;
+      const data = google
+        ? await authApi.googleComplete(google.token, 'nurse', details)
+        : (await http.post<AuthResponse>('/auth/register/nurse', payload)).data;
+      if (google) googleSignup.clear();
       setSession(data);
       router.push('/profile/nurse');
     } catch (err) {
@@ -67,8 +99,9 @@ export default function RegisterNursePage() {
 
         {error && <div className="form-error" role="alert">{error}</div>}
 
+        <StepHeader step={step} labels={['About you', 'Work & licence']} />
         <form onSubmit={submit} noValidate>
-          <fieldset className={styles.section}>
+          <fieldset className={styles.section} hidden={step !== 1}>
             <legend>About you</legend>
             <div className="field-row">
               <div className="field">
@@ -83,18 +116,20 @@ export default function RegisterNursePage() {
             <div className="field-row">
               <div className="field">
                 <label htmlFor="email">Email</label>
-                <input id="email" type="email" className="input" value={f.email} onChange={(e) => set('email', e.target.value)} required autoComplete="email" />
+                <input id="email" type="email" className="input" value={f.email} onChange={(e) => set('email', e.target.value)} required autoComplete="email" readOnly={!!google} />
               </div>
-              <div className="field">
+              {!google && (
+                <div className="field">
                 <label htmlFor="password">Password</label>
                 <input id="password" type="password" className="input" minLength={8} value={f.password} onChange={(e) => set('password', e.target.value)} required autoComplete="new-password" />
                 <span className={styles.hint}>At least 8 characters.</span>
               </div>
+              )}
             </div>
             <div className="field-row">
               <div className="field">
                 <label htmlFor="phone">Phone (shared with a patient only after you accept their visit)</label>
-                <input id="phone" className="input" inputMode="tel" placeholder="+92 3xx xxxxxxx" value={f.phone} onChange={(e) => set('phone', e.target.value)} />
+                <input id="phone" className="input" inputMode="tel" placeholder="+92 3xx xxxxxxx" value={f.phone} onChange={(e) => set('phone', cleanPhoneInput(e.target.value))} />
               </div>
               <div className="field">
                 <label htmlFor="gender">Gender</label>
@@ -106,8 +141,13 @@ export default function RegisterNursePage() {
               </div>
             </div>
           </fieldset>
+          {step === 1 && (
+            <button type="button" id="nextStep" className="btn btn-lg btn-block" onClick={goNext}>
+              Continue to {google ? 'your details' : 'step 2'} →
+            </button>
+          )}
 
-          <fieldset className={styles.section}>
+          <fieldset className={styles.section} hidden={step !== 2}>
             <legend>Your work</legend>
             <div className="field-row">
               <div className="field">
@@ -161,7 +201,7 @@ export default function RegisterNursePage() {
             </div>
           </fieldset>
 
-          <fieldset className={`${styles.section} ${styles.verify}`}>
+          <fieldset className={`${styles.section} ${styles.verify}`} hidden={step !== 2}>
             <legend>Licence verification</legend>
             <div className={styles.verifyNote}>
               <ShieldCheck size={20} />
@@ -181,9 +221,14 @@ export default function RegisterNursePage() {
             </label>
           </fieldset>
 
-          <button className="btn btn-lg btn-block" disabled={busy}>
+          <button className="btn btn-lg btn-block" disabled={busy} hidden={step !== 2} id="createAccount">
             {busy ? <span className="spinner" /> : 'Create nurse account'}
           </button>
+          {step === 2 && (
+            <button type="button" className="btn btn-ghost btn-block" onClick={() => { setStep(1); setError(''); }}>
+              ← Back
+            </button>
+          )}
           <p className={styles.foot}>
             Already registered? <Link href="/login">Sign in</Link> · Are you a doctor? <Link href="/register/doctor">Join as a doctor</Link>
           </p>

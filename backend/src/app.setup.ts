@@ -10,9 +10,22 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
  */
 export function configureApp(app: INestApplication, corsOrigins?: string[]): void {
   app.setGlobalPrefix('api');
+  // Behind a hosting proxy (Render, Vercel, Nginx) use the visitor's real IP from
+  // X-Forwarded-For, otherwise every visitor shares the proxy's IP and one rate limit.
+  const trust = process.env.TRUST_PROXY ?? (process.env.NODE_ENV === 'production' ? '1' : 'loopback');
+  (app.getHttpAdapter().getInstance() as { set: (k: string, v: unknown) => void }).set(
+    'trust proxy',
+    /^\d+$/.test(trust) ? Number(trust) : trust === 'true' ? true : trust,
+  );
   // Uploaded blog images. Long cache: file names are random UUIDs, never reused.
   app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', index: false }));
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  // same-origin-allow-popups: Firebase Google sign-in needs window.closed on the popup.
+  app.use(
+    helmet({
+      crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   // 6 MB covers a ~4 MB report photo in base64; chat DTOs cap text separately.
   app.use(json({ limit: '6mb' }));
   app.use(urlencoded({ extended: true, limit: '1mb' }));

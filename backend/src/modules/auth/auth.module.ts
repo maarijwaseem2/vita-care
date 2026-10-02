@@ -4,6 +4,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthService } from './auth.service';
+import { EmailVerificationService } from './email-verification.service';
+import { FirebaseVerifier, GoogleAuthService } from './google-auth.service';
+import { PasswordResetService } from './password-reset.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
@@ -22,11 +25,13 @@ import { Patient } from '../patients/entities/patient.entity';
         secret: config.get<string>('JWT_SECRET') || 'dev-secret',
         signOptions: {
           expiresIn: config.get<string>('JWT_EXPIRES_IN') ?? '7d',
+          algorithm: 'HS256',
         },
       }),
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, EmailVerificationService, FirebaseVerifier, GoogleAuthService, PasswordResetService],
+  exports: [EmailVerificationService],
 })
 export class AuthModule {}

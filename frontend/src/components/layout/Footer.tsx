@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Mail, Phone, MapPin } from 'lucide-react';
+import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import { CONTACT } from '@/lib/contact';
 import Logo from '@/components/brand/Logo';
 import styles from './Footer.module.css';
 
@@ -14,6 +15,7 @@ const QUICK = [
   { href: '/register/doctor', label: 'Join as a Doctor' },
   { href: '/register/nurse', label: 'Join as a Nurse' },
   { href: '/home-care', label: 'Home Nursing' },
+  { href: '/contact', label: 'Contact us' },
 ];
 
 export default function Footer() {
@@ -62,10 +64,13 @@ export default function Footer() {
             <h4>Get in touch</h4>
             <ul className={styles.contact}>
               <li>
-                <Mail size={16} /> support@vitacare.example
+                <a href={`tel:${CONTACT.phoneTel}`}><Phone size={16} /> {CONTACT.phoneDisplay}</a>
               </li>
               <li>
-                <Phone size={16} /> +92 300 000 0000
+                <a href={`mailto:${CONTACT.email}`}><Mail size={16} /> {CONTACT.email}</a>
+              </li>
+              <li>
+                <a href={CONTACT.whatsapp} target="_blank" rel="noopener noreferrer"><MessageCircle size={16} /> WhatsApp us</a>
               </li>
               <li>
                 <MapPin size={16} /> Karachi, Pakistan

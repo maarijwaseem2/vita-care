@@ -82,6 +82,10 @@ export class Appointment {
   @Column({ type: 'decimal', precision: 9, scale: 6, nullable: true, transformer: { to: (v: number | null) => v, from: (v: string | null) => (v == null ? null : Number(v)) } })
   longitude: number | null;
 
+  /** Home-visit charge at booking time (null for clinic visits). */
+  @Column({ name: 'home_visit_charge', type: 'int', nullable: true })
+  homeVisitCharge: number | null;
+
   /** AI pre-visit summary the patient chose to share with the doctor. */
   @ManyToOne(() => TriageSession, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'triage_session_id' })

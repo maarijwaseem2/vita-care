@@ -37,6 +37,8 @@ import {
 } from './safety';
 import { offlineConsult, refineSpecialty } from './offline-triage';
 import { MedicineAdvice, offlineMedicinePicks, resolveMedicines } from './medicines';
+import { nearbyDoctorsLine } from './nearby';
+import { inLanguage, LANGUAGE_NAMES } from './language';
 import { consultSystemPrompt, reportSystemPrompt, safetyCheckPrompt } from './prompts';
 
 export interface ConsultResult {
@@ -116,7 +118,7 @@ export class ChatbotService {
     private readonly sessions: Repository<TriageSession>,
   ) {}
 
-  async consult(dto: ChatDto, user?: AuthUser | null): Promise<ConsultResult> {
+  async consult(dto: ChatDto, user?: AuthUser | null, opts: { offline?: boolean } = {}): Promise<ConsultResult> {
     const userText = dto.messages.filter((m) => m.role === 'user').map((m) => m.content);
     // Detect from the whole conversation: short answers like "2 din" or
     // "Moderate" should not flip the language mid-consultation.
@@ -142,8 +144,11 @@ export class ChatbotService {
     let mode: 'ai' | 'offline' = 'ai';
     let reply: AiConsultReply;
     const hasActiveEmergency = redFlags.some((f) => f.urgency === 'emergency');
+    // opts.offline: daily limit reached but an emergency was detected → answer with rules only (no tokens).
     const [main, second] = await Promise.allSettled([
-      this.ai.complete(
+      opts.offline
+        ? Promise.reject(new AiUnavailableError('Daily AI limit reached', 'not_configured'))
+        : this.ai.complete(
         [
           {
             role: 'system',
@@ -157,9 +162,9 @@ export class ChatbotService {
           },
           ...dto.messages.map((m) => ({ role: m.role, content: m.content })),
         ],
-        { json: true },
+        { json: true, maxTokens: 700 },
       ),
-      hasActiveEmergency ? Promise.resolve(null) : this.safetySecondOpinion(userText),
+      hasActiveEmergency || opts.offline ? Promise.resolve(null) : this.safetySecondOpinion(userText),
     ]);
     if (main.status === 'fulfilled') {
       reply = parseConsultReply(main.value);
@@ -187,6 +192,14 @@ export class ChatbotService {
     // If the guard overruled the model (or no model ran), the model's calmer
     // wording must not be shown next to an emergency banner.
     const guardOverruled = isEmergency && reply.urgency !== 'emergency';
+    // The patient picked a reply language: make sure the model really used it.
+    if (mode === 'ai' && dto.language && !inLanguage(reply.reply, dto.language)) {
+      const fixed = await this.translateReply(reply.reply, reply.quickReplies, dto.language);
+      if (fixed) {
+        reply.reply = fixed.reply;
+        reply.quickReplies = fixed.quickReplies;
+      }
+    }
     let replyText = reply.reply;
     if (isEmergency && (mode === 'offline' || guardOverruled)) {
       replyText = emergencyInfo(redFlags, language).headline;
@@ -228,8 +241,13 @@ export class ChatbotService {
 
     const recommendedDoctors =
       specialty && stage === 'assessment'
-        ? await this.doctorsService.findBySpecialty(specialty, 3, patient?.city)
+        ? await this.doctorsService.recommend(specialty, { city: patient?.city, address: patient?.address, text: allText }, 3)
         : [];
+
+    // Core promise: every assessment names the department and the nearest doctors.
+    if (stage === 'assessment' && urgency !== 'emergency' && specialty && recommendedDoctors.length) {
+      replyText = `${replyText}\n\n${nearbyDoctorsLine(language, specialty, recommendedDoctors, !!patient?.city)}`;
+    }
 
     // 6. Persist.
     const session = await this.saveSession(dto, {
@@ -292,7 +310,7 @@ export class ChatbotService {
             ],
           },
         ],
-        { model: this.ai.visionModel, json: true, timeoutMs: 60_000 },
+        { model: this.ai.visionModel, json: true, timeoutMs: 60_000, maxTokens: 1400 },
       );
     } catch (err) {
       if (err instanceof AiUnavailableError) {
@@ -379,7 +397,7 @@ export class ChatbotService {
       findings,
       recommendedSpecialty: specialty,
       recommendedDoctors: specialty
-        ? await this.doctorsService.findBySpecialty(specialty, 3, patient?.city)
+        ? await this.doctorsService.recommend(specialty, { city: patient?.city, address: patient?.address }, 3)
         : [],
       urgency,
       possibleConditions,
@@ -435,6 +453,34 @@ export class ChatbotService {
    * Returns a reason when it says yes; null otherwise or on any failure
    * (it can only ever add urgency, never block the main answer).
    */
+  /** Translate a reply (and its tap-to-answer options) into the chosen language. Null on failure. */
+  private async translateReply(
+    reply: string,
+    quickReplies: string[],
+    lang: ChatLanguage,
+  ): Promise<{ reply: string; quickReplies: string[] } | null> {
+    try {
+      const raw = await this.ai.complete(
+        [
+          {
+            role: 'system',
+            content:
+              `Translate the JSON values into ${LANGUAGE_NAMES[lang]}. Keep medical meaning exact, keep it simple and warm. ` +
+              'Keep doctor names, numbers and "1122" unchanged. Respond ONLY with JSON {"reply": string, "quickReplies": string[]}.',
+          },
+          { role: 'user', content: JSON.stringify({ reply, quickReplies }) },
+        ],
+        { json: true, temperature: 0, timeoutMs: 15_000, maxTokens: 400 },
+      );
+      const p = JSON.parse(raw.replace(/```json|```/g, '').trim()) as { reply?: unknown; quickReplies?: unknown };
+      if (typeof p.reply !== 'string' || !p.reply.trim()) return null;
+      const qr = Array.isArray(p.quickReplies) ? p.quickReplies.filter((x): x is string => typeof x === 'string').slice(0, 6) : quickReplies;
+      return { reply: p.reply.slice(0, 2000), quickReplies: qr };
+    } catch {
+      return null;
+    }
+  }
+
   private async safetySecondOpinion(userText: string[]): Promise<string | null> {
     if (!this.ai.configured) return null;
     try {
@@ -443,10 +489,14 @@ export class ChatbotService {
           { role: 'system', content: safetyCheckPrompt() },
           { role: 'user', content: userText.slice(-6).join('\n---\n') },
         ],
-        { json: true, temperature: 0, timeoutMs: 12_000 },
+        { json: true, temperature: 0, timeoutMs: 12_000, maxTokens: 80 },
       );
       const p = extractJson(raw);
-      return p?.emergency === true ? String(p.reason ?? 'possible emergency').slice(0, 120) : null;
+      if (p?.emergency !== true) return null;
+      const sign = String(p.dangerSign ?? p.reason ?? '').trim();
+      // "Severe pain in the head" is intensity, not a danger sign: do not escalate on that alone.
+      if (!sign || /^(very |really )?(severe|bad|strong|intense|a lot of|lots of)?\s*(pain|ache|headache|stomach ?ache|back ?pain)(\s+in the \w+)?\.?$/i.test(sign)) return null;
+      return sign.slice(0, 120);
     } catch {
       return null;
     }

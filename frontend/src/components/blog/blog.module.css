@@ -76,3 +76,17 @@
 
 .related { background: var(--surface-2); margin-top: 64px; padding: 44px 0 64px; }
 .related h2 { font-size: 1.4rem; margin-bottom: 20px; }
+
+/* ---- Article alignment (1 Oct 2026): header, banner, body and CTA share one 780 px column ---- */
+.articleHead, .banner, .prose, .disclaimer { max-width: 780px; margin-left: auto; margin-right: auto; padding-left: 20px; padding-right: 20px; }
+.banner { margin-top: 28px; }
+.prose { margin-top: 32px; }
+.cta { max-width: 740px; margin-left: auto; margin-right: auto; }
+@media (max-width: 780px) { .cta { margin-left: 20px; margin-right: 20px; } }
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose ul, .prose ol { padding-inline-start: 1.4em; }
+.prose li { padding-inline-start: 0.2em; }
+.prose li::marker { color: var(--cyan); font-weight: 700; }
+.prose h2 { font-weight: 800; color: var(--ink); }
+.prose strong { color: var(--ink); }

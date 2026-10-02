@@ -10,6 +10,9 @@ import { UpdateDoctorDto } from './dto/update-doctor.dto';
 import { QueryDoctorsDto } from './dto/query-doctors.dto';
 import { Specialty } from '../../common/enums';
 
+/** Cities patients often name in chat (Roman spellings included). */
+const KNOWN_CITIES = ['karachi', 'lahore', 'islamabad', 'rawalpindi', 'pindi', 'peshawar', 'quetta', 'multan', 'faisalabad', 'hyderabad', 'sialkot', 'abbottabad', 'gujranwala', 'isb'];
+
 /** Escape % and _ so user input is matched literally inside ILIKE. */
 const escapeLike = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
 
@@ -59,6 +62,48 @@ export class DoctorsService {
         .setParameter('city', preferCity);
     }
     return qb.addOrderBy('doctor.rating', 'DESC').take(limit).getMany();
+  }
+
+  /**
+   * Area-wise recommendation for the AI Doctor and report reader:
+   *   1. same area as the patient (area = first part of the doctor's address, e.g. "Clifton"),
+   *   2. same city, 3. anywhere; then by rating.
+   * City comes from the patient's profile, or a city named in the chat if the profile has none.
+   */
+  async recommend(
+    specialty: Specialty,
+    where: { city?: string | null; address?: string | null; text?: string | null },
+    limit = 3,
+  ): Promise<(Doctor & { proximity: 'area' | 'city' | null })[]> {
+    const all = await this.doctorsRepository.find({ where: { specialty, verificationStatus: 'verified' } });
+    const norm = (v: string) => v.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+    const text = norm(where.text ?? '');
+    let city = where.city ? norm(where.city) : null;
+    if (!city) {
+      const known = [...new Set(all.map((d) => norm(d.city ?? '')).filter(Boolean)), ...KNOWN_CITIES];
+      city = known.find((c) => new RegExp(`\\b${c}\\b`).test(text)) ?? null;
+      if (city === 'pindi') city = 'rawalpindi';
+      if (city === 'isb') city = 'islamabad';
+    }
+    const hay = norm(`${where.address ?? ''} ${where.text ?? ''}`);
+    const scored = all.map((d) => {
+      const sameCity = !!city && norm(d.city ?? '') === city;
+      const area = norm((d.address ?? '').split(',')[0] ?? '');
+      const first = area.split(' ')[0] ?? '';
+      const sameArea = sameCity && area.length > 2 && area !== city && (hay.includes(area) || (first.length >= 4 && new RegExp(`\\b${first}\\b`).test(hay)));
+      const proximity: 'area' | 'city' | null = sameArea ? 'area' : sameCity ? 'city' : null;
+      return { d, rank: sameArea ? 0 : sameCity ? 1 : 2, proximity };
+    });
+    scored.sort((a, b) => a.rank - b.rank || Number(b.d.rating) - Number(a.d.rating) || a.d.id - b.d.id);
+    return scored.slice(0, limit).map((x) => Object.assign(x.d, { proximity: x.proximity }));
+  }
+
+  /** Save a new profile photo for the signed-in doctor. */
+  async setPhoto(userId: number, url: string): Promise<Doctor> {
+    const doctor = await this.doctorsRepository.findOne({ where: { userId } });
+    if (!doctor) throw new NotFoundException('Doctor profile not found');
+    doctor.imageUrl = url;
+    return this.doctorsRepository.save(doctor);
   }
 
   /** Public profile: only verified doctors can be viewed or booked. */

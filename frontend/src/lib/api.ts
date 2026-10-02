@@ -56,6 +56,48 @@ export function getErrorMessage(error: unknown): string {
 // Auth
 // ---------------------------------------------------------------------------
 export const authApi = {
+  /** POST /auth/forgot-password — emails a 6-digit code. */
+  async forgotPassword(email: string): Promise<{ message: string; devCode?: string }> {
+    const { data } = await http.post('/auth/forgot-password', { email });
+    return data;
+  },
+
+  /** POST /auth/reset-password */
+  async resetPassword(email: string, code: string, newPassword: string): Promise<{ reset: true }> {
+    const { data } = await http.post('/auth/reset-password', { email, code, newPassword });
+    return data;
+  },
+
+  /** POST /auth/verify-email — the token from the email link. */
+  async verifyEmail(token: string): Promise<{ verified: true; email: string }> {
+    const { data } = await http.post('/auth/verify-email', { token });
+    return data;
+  },
+
+  /** POST /auth/resend-verification — a new link (60 s cooldown). */
+  async resendVerification(): Promise<{ alreadyVerified?: boolean; sent?: boolean; devVerificationUrl?: string }> {
+    const { data } = await http.post('/auth/resend-verification');
+    return data;
+  },
+
+  /** GET /auth/me — fresh account status (e.g. verified in another tab). */
+  async status(): Promise<{ userId: number; email: string; role: string; emailVerified?: boolean }> {
+    const { data } = await http.get('/auth/me');
+    return data;
+  },
+
+  /** POST /auth/google — a session, or { needsOnboarding, signupToken } for a new person. */
+  async google(idToken: string): Promise<AuthResponse | { needsOnboarding: true; signupToken: string; email: string; name: string }> {
+    const { data } = await http.post('/auth/google', { idToken });
+    return data;
+  },
+
+  /** POST /auth/google/complete — new Google user: role + the same details as the sign-up form. */
+  async googleComplete(signupToken: string, role: 'patient' | 'doctor' | 'nurse', details: Record<string, unknown>): Promise<AuthResponse> {
+    const { data } = await http.post<AuthResponse>('/auth/google/complete', { signupToken, role, details });
+    return data;
+  },
+
   async loginRequest(email: string, password: string): Promise<AuthResponse> {
     const { data } = await http.post<AuthResponse>('/auth/login', {
       email,
@@ -227,6 +269,11 @@ export const blogApi = {
 // Chatbot (AI Doctor)
 // ---------------------------------------------------------------------------
 export const chatbotApi = {
+  async usage(): Promise<Record<'message' | 'report' | 'voice', { used: number; limit: number | null; remaining: number | null }>> {
+    const { data } = await http.get('/chatbot/usage');
+    return data;
+  },
+
   async status(): Promise<AiStatus> {
     const { data } = await http.get<AiStatus>('/chatbot/status');
     return data;
@@ -289,5 +336,12 @@ export const voiceApi = {
   async speak(text: string, language: ChatLanguage): Promise<Blob> {
     const { data } = await http.post('/voice/speak', { text, language }, { responseType: 'blob', timeout: 60_000 });
     return data as Blob;
+  },
+};
+
+export const contactApi = {
+  async send(payload: { name: string; email: string; phone?: string; topic: string; message: string }): Promise<{ received: true; message: string }> {
+    const { data } = await http.post('/contact', payload);
+    return data;
   },
 };

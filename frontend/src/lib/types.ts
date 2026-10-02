@@ -26,11 +26,15 @@ export interface AuthUser {
   role: UserRole;
   profileId: number;
   name: string;
+  /** false until the email link is clicked (Google sign-in counts as verified). */
+  emailVerified?: boolean;
 }
 
 export interface AuthResponse {
   accessToken: string;
   user: AuthUser;
+  /** Local development only (no email service): the verification link. */
+  devVerificationUrl?: string;
 }
 
 export interface Doctor {
@@ -61,6 +65,10 @@ export interface Doctor {
   council?: 'PMDC' | 'AHPC';
   /** Offers visits at the patient's home. */
   homeVisits?: boolean;
+  /** Extra charge (Rs) for a home visit. */
+  homeVisitCharge?: number;
+  /** Set on AI recommendations: same area or same city as the patient. */
+  proximity?: 'area' | 'city' | null;
   verificationStatus?: 'pending' | 'verified' | 'rejected';
   verificationNote?: string | null;
 }
@@ -91,6 +99,7 @@ export type AppointmentStatus = 'booked' | 'completed' | 'cancelled';
 
 export interface Appointment {
   visitType?: 'clinic' | 'home';
+  homeVisitCharge?: number | null;
   homeAddress?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -188,7 +197,15 @@ export interface MedicineAdvice {
   reason: string;
 }
 
+export interface UsageInfo {
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+}
+
 export interface ConsultResult {
+  /** Today's AI allowance after this message (null in offline mode). */
+  usage?: UsageInfo | null;
   sessionToken: string;
   mode: 'ai' | 'offline';
   language: ChatLanguage;
