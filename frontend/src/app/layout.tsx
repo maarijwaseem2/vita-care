@@ -31,6 +31,29 @@ export const metadata: Metadata = {
   description:
     'Describe your symptoms in Urdu, Roman Urdu or English. Vita Care AI asks follow-up questions, flags emergencies, recommends a specialist, and books the visit.',
   icons: { icon: '/favicons/favicon.ico' },
+  openGraph: {
+    title: 'Vita Care AI — AI Doctor & Specialist Booking',
+    description:
+      'Describe your symptoms in Urdu, Roman Urdu or English. Vita Care AI asks follow-up questions, flags emergencies, recommends a specialist, and books the visit.',
+    url: 'https://vita-cares.vercel.app/',
+    siteName: 'Vita Care AI',
+    type: 'website',
+    images: [
+      {
+        url: 'https://vita-cares.vercel.app/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Vita Care AI homepage',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Vita Care AI — AI Doctor & Specialist Booking',
+    description:
+      'Describe your symptoms in Urdu, Roman Urdu or English. Vita Care AI asks follow-up questions, flags emergencies, recommends a specialist, and books the visit.',
+    images: ['https://vita-cares.vercel.app/og-image.jpg'],
+  },
 };
 
 export default function RootLayout({
