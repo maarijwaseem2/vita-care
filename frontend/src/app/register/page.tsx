@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import RoleCards from '@/components/auth/RoleCards';
 import styles from './chooser.module.css';
 
-export const metadata = { title: 'Create your account | Vita Care' };
+export const metadata = { title: 'Create your account | Vita Care AI' };
 
 export default function RegisterChooser() {
   return (

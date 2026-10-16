@@ -14,7 +14,7 @@ const pageNum = (v?: string) => Math.max(1, Number.parseInt(v ?? '1', 10) || 1);
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const page = pageNum(searchParams.page);
   const cat = searchParams.category;
-  const title = `${cat ? `${cat} articles` : 'Health blog'}${page > 1 ? ` – page ${page}` : ''} | Vita Care`;
+  const title = `${cat ? `${cat} articles` : 'Health blog'}${page > 1 ? ` – page ${page}` : ''} | Vita Care AI`;
   const qs = new URLSearchParams({ ...(cat ? { category: cat } : {}), ...(page > 1 ? { page: String(page) } : {}) }).toString();
   return {
     title,

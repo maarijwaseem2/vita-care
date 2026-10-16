@@ -27,9 +27,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Vita Care | AI Doctor in Urdu & English, book the right specialist',
+  title: 'Vita Care AI — AI Doctor & Specialist Booking',
   description:
-    'Describe your symptoms in Urdu, Roman Urdu or English. The Vita Care AI Doctor (Alibaba Cloud Qwen) asks the right questions, flags emergencies, and books you with a real specialist who sees your history first.',
+    'Describe your symptoms in Urdu, Roman Urdu or English. Vita Care AI asks follow-up questions, flags emergencies, recommends a specialist, and books the visit.',
   icons: { icon: '/favicons/favicon.ico' },
 };
 
