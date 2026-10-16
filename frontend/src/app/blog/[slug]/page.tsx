@@ -11,13 +11,13 @@ type Props = { params: { slug: string } };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = await serverBlog.get(params.slug);
-  if (!post) return { title: 'Article not found | Vita Care', robots: { index: false } };
+  if (!post) return { title: 'Article not found | Vita Care AI', robots: { index: false } };
   const title = post.metaTitle || post.title;
   const description = post.metaDescription || post.excerpt;
   const url = `${SITE_URL}/blog/${post.slug}`;
   const image = mediaUrl(post.imageUrl);
   return {
-    title: `${title} | Vita Care`,
+    title: `${title} | Vita Care AI`,
     description,
     alternates: { canonical: url },
     openGraph: {
@@ -45,8 +45,8 @@ export default async function ArticlePage({ params }: Props) {
     description: post.metaDescription || post.excerpt,
     datePublished: post.publishedAt,
     dateModified: post.updatedAt ?? post.publishedAt,
-    author: post.author ? { '@type': 'Person', name: post.author } : { '@type': 'Organization', name: 'Vita Care' },
-    publisher: { '@type': 'Organization', name: 'Vita Care' },
+    author: post.author ? { '@type': 'Person', name: post.author } : { '@type': 'Organization', name: 'Vita Care AI' },
+    publisher: { '@type': 'Organization', name: 'Vita Care AI' },
     image: mediaUrl(post.imageUrl),
     mainEntityOfPage: `${SITE_URL}/blog/${post.slug}`,
   };
